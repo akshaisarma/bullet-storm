@@ -15,6 +15,7 @@ import com.yahoo.bullet.parsing.Error;
 import com.yahoo.bullet.record.BulletRecord;
 import com.yahoo.bullet.result.Clip;
 import com.yahoo.bullet.result.Metadata;
+import com.yahoo.bullet.result.Metadata.Concept;
 import com.yahoo.bullet.result.RecordBox;
 import com.yahoo.bullet.tracing.AggregationRule;
 import org.apache.storm.topology.IRichBolt;
@@ -457,7 +458,7 @@ public class JoinBoltTest {
     @Test
     public void testQueryIdentifierMetadata() {
         Map<String, Object> config = new HashMap<>();
-        enableMetadataInConfig(config, Metadata.RULE_ID, "id");
+        enableMetadataInConfig(config, Concept.RULE_ID.getName(), "id");
         setup(config);
 
         Tuple rule = TupleUtils.makeIDTuple(TupleType.Type.RULE_TUPLE, 42L, "{}");
@@ -478,7 +479,7 @@ public class JoinBoltTest {
     @Test
     public void testUnknownConceptMetadata() {
         Map<String, Object> config = new HashMap<>();
-        enableMetadataInConfig(config, Metadata.RULE_ID, "id");
+        enableMetadataInConfig(config, Concept.RULE_ID.getName(), "id");
         enableMetadataInConfig(config, "foo", "bar");
         setup(config);
 
@@ -500,10 +501,10 @@ public class JoinBoltTest {
     @Test
     public void testMultipleMetadata() {
         Map<String, Object> config = new HashMap<>();
-        enableMetadataInConfig(config, Metadata.RULE_ID, "id");
-        enableMetadataInConfig(config, Metadata.RULE_BODY, "rule");
-        enableMetadataInConfig(config, Metadata.CREATION_TIME, "created");
-        enableMetadataInConfig(config, Metadata.TERMINATION_TIME, "finished");
+        enableMetadataInConfig(config, Concept.RULE_ID.getName(), "id");
+        enableMetadataInConfig(config, Concept.RULE_BODY.getName(), "rule");
+        enableMetadataInConfig(config, Concept.CREATION_TIME.getName(), "created");
+        enableMetadataInConfig(config, Concept.TERMINATION_TIME.getName(), "finished");
         setup(config);
 
         long startTime = System.currentTimeMillis();

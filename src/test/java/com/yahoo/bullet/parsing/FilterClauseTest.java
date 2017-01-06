@@ -6,7 +6,6 @@
 package com.yahoo.bullet.parsing;
 
 import com.yahoo.bullet.operations.FilterOperations.FilterType;
-import com.yahoo.bullet.record.BulletRecord;
 import com.yahoo.bullet.result.RecordBox;
 import org.apache.commons.lang3.tuple.Pair;
 import org.testng.Assert;
@@ -26,7 +25,6 @@ import static com.yahoo.bullet.parsing.RuleUtils.makeClause;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
-import static java.util.Collections.singletonMap;
 
 public class FilterClauseTest {
     public static FilterClause getFieldFilter(String field, FilterType operation, String... values) {

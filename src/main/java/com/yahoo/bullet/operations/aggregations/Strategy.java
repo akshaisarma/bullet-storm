@@ -7,9 +7,6 @@ package com.yahoo.bullet.operations.aggregations;
 
 import com.yahoo.bullet.record.BulletRecord;
 import com.yahoo.bullet.result.Clip;
-import com.yahoo.bullet.result.Metadata;
-
-import java.util.List;
 
 public interface Strategy {
     /**

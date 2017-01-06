@@ -60,7 +60,7 @@ public class SpecificationTest {
         Assert.assertEquals(specification.getAggregation().getType(), AggregationType.RAW);
         Assert.assertEquals(specification.getAggregation().getSize(), Aggregation.DEFAULT_SIZE);
         Assert.assertTrue(specification.isAcceptingData());
-        Assert.assertEquals(specification.getAggregate(), emptyList());
+        Assert.assertEquals(specification.getAggregate().getRecords(), emptyList());
     }
 
 
@@ -88,7 +88,7 @@ public class SpecificationTest {
         Assert.assertNull(specification.getAggregation());
         specification.configure(Collections.emptyMap());
         Assert.assertTrue(specification.isAcceptingData());
-        Assert.assertEquals(specification.getAggregate(), emptyList());
+        Assert.assertEquals(specification.getAggregate().getRecords(), emptyList());
     }
 
     @Test
@@ -242,7 +242,7 @@ public class SpecificationTest {
         Assert.assertTrue(makeStream(Aggregation.DEFAULT_SIZE - 1).map(specification::filter).allMatch(x -> x));
         // Check that we only get the default number out
         makeList(Aggregation.DEFAULT_SIZE + 2).forEach(specification::aggregate);
-        Assert.assertEquals((Integer) specification.getAggregate().size(), Aggregation.DEFAULT_SIZE);
+        Assert.assertEquals((Integer) specification.getAggregate().getRecords().size(), Aggregation.DEFAULT_SIZE);
     }
 
     @Test

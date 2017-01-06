@@ -6,7 +6,6 @@
 package com.yahoo.bullet.tracing;
 
 import com.yahoo.bullet.parsing.ParsingException;
-import com.yahoo.bullet.record.BulletRecord;
 import com.yahoo.bullet.result.Clip;
 import lombok.Getter;
 
@@ -39,7 +38,7 @@ public class AggregationRule extends AbstractRule<byte[], Clip> {
      *
      * Get the aggregate so far.
      *
-     * @return A non-null aggregated resulting List of {@link BulletRecord}.
+     * @return A non-null aggregated resulting {@link Clip}.
      */
     @Override
     public Clip getData() {

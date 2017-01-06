@@ -55,6 +55,8 @@ public class BulletConfig extends Config {
     public static final String RESULT_METADATA_METRICS_CONCEPT_KEY = "name";
     public static final String RESULT_METADATA_METRICS_NAME_KEY = "key";
 
+    public static final String RESULT_METADATA_METRICS_MAPPING = "result.metadata.metrics.mapping";
+
     /**
      * Constructor that loads specific file augmented with defaults.
      *

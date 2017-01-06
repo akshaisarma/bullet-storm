@@ -78,11 +78,20 @@ rule.aggregation.raw.micro.batch.size: 1
 # Enable logging meta information in the results. Configured metadata will be add to the meta section of the
 # results: {"meta": {}, "records": []}
 result.metadata.enable: true
+
 # Each entry in this list indicates which metadata to collect (the name) and what key to add it as (the key) to the meta
 # AbstractRule Identifier adds the original DRPC ID that was generated for the rule.
 # AbstractRule Body adds the received rule definition. This is useful for diagnosing syntax exceptions when errors are received.
 # Creation Time adds the timestamp in milliseconds when the AbstractRule was received by the Join Bolt
 # Termination Time adds the timestamp in milliseconds when the Records were emitted by the Join Bolt
+# Aggregation Metadata adds additional nested metadata about the aggregation if set. These are listed below.
+
+# Estimated Result adds a boolean denoting whether the result was estimated.
+# Standard Deviations adds an object inside the Aggregation Metadata object where the keys are the standard deviations
+#                     and the values are objects containing upper and lower bounds.
+# Sketch Family adds the family of Sketches uses to produce the result, if one was used.
+# Sketch Size adds the size of final Sketch used to produced the result, if one was used.
+# Sketch Theta adds the theta value of the Sketch for Theta and Tuple Sketches (COUNT DISTINCT, GROUP), if one was used.
 result.metadata.metrics:
     - name: "Rule Identifier"
       key: "rule_id"
@@ -92,6 +101,18 @@ result.metadata.metrics:
       key: "rule_receive_time"
     - name: "Termination Time"
       key: "rule_finish_time"
+    - name: "Aggregation Metadata"
+      key: "aggregation"
+    - name: "Estimated Result"
+      key: "wasEstimated"
+    - name: "Standard Deviations"
+      key: "standardDeviations"
+    - name: "Sketch Family"
+      key: "sketchFamily"
+    - name: "Sketch Size"
+      key: "sketchFamily"
+    - name: "Sketch Theta"
+      key: "sketchTheta"
 
 # Enables whether each record should have a new key added to it denoting when the Filter Bolt saw it
 record.inject.timestamp.enable: true
