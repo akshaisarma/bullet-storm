@@ -8,6 +8,7 @@ package com.yahoo.bullet.parsing;
 import com.google.gson.annotations.Expose;
 import com.yahoo.bullet.BulletConfig;
 import com.yahoo.bullet.record.BulletRecord;
+import com.yahoo.bullet.result.Clip;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
@@ -111,11 +112,11 @@ public class Specification implements Configurable, Validatable  {
     }
 
     /**
-     * Gets the aggregated records.
+     * Gets the aggregated records {@link Clip}.
      *
-     * @return a non-null {@link List} representing the aggregation.
+     * @return a non-null {@link Clip} representing the aggregation.
      */
-    public List<BulletRecord> getAggregate() {
+    public Clip getAggregate() {
         return aggregation.getStrategy().getAggregation();
     }
 
@@ -161,16 +162,6 @@ public class Specification implements Configurable, Validatable  {
         return record;
     }
 
-    /**
-     * Takes a field and returns it split into subfields if necessary.
-     *
-     * @param field The non-null field to get.
-     * @return The field split into field or subfield if it was a map field, or just the field itself.
-     */
-    public static String[] getFields(String field) {
-        return field.split(SUB_KEY_SEPERATOR, 2);
-    }
-
     @Override
     public Optional<List<Error>> validate() {
         List<Error> errors = new ArrayList<>();
@@ -186,5 +177,34 @@ public class Specification implements Configurable, Validatable  {
             aggregation.validate().ifPresent(errors::addAll);
         }
         return errors.isEmpty() ? Optional.empty() : Optional.of(errors);
+    }
+
+    /**
+     * Extracts the field from the given {@link BulletRecord}.
+     *
+     * @param field The field to get. It can be "." separated to look inside maps.
+     * @param record The record containing data.
+     * @return The extracted field or null if error or not found.
+     */
+    public static Object extractField(String field, BulletRecord record) {
+        if (field == null) {
+            return null;
+        }
+        String[] split = getFields(field);
+        try {
+            return split.length > 1 ? record.get(split[0], split[1]) : record.get(field);
+        } catch (ClassCastException cce) {
+            return null;
+        }
+    }
+
+    /**
+     * Takes a field and returns it split into subfields if necessary.
+     *
+     * @param field The non-null field to get.
+     * @return The field split into field or subfield if it was a map field, or just the field itself.
+     */
+    public static String[] getFields(String field) {
+        return field.split(SUB_KEY_SEPERATOR, 2);
     }
 }

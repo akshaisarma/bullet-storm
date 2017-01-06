@@ -202,20 +202,6 @@ public class FilterClauseTest {
     }
 
     @Test
-    public void testExtractField() {
-        BulletRecord record = RecordBox.get().add("field", "foo").add("map_field.foo", "bar")
-                                             .addMap("map_field", Pair.of("foo", "baz"))
-                                             .addList("list_field", singletonMap("foo", "baz"))
-                                       .getRecord();
-
-        Assert.assertNull(FilterClause.extractField(null, record));
-        Assert.assertNull(FilterClause.extractField("", record));
-        Assert.assertNull(FilterClause.extractField("id", record));
-        Assert.assertEquals(FilterClause.extractField("map_field.foo", record), "baz");
-        Assert.assertNull(FilterClause.extractField("list_field.bar", record));
-    }
-
-    @Test
     public void testToString() {
         FilterClause filterClause = new FilterClause();
         Assert.assertEquals(filterClause.toString(), "{operation: null, field: null, values: null}");

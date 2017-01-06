@@ -10,6 +10,7 @@ import com.yahoo.bullet.operations.AggregationOperations.AggregationType;
 import com.yahoo.bullet.operations.FilterOperations.FilterType;
 import com.yahoo.bullet.record.BulletRecord;
 import com.yahoo.bullet.result.RecordBox;
+import org.apache.commons.lang3.tuple.Pair;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -60,6 +61,21 @@ public class SpecificationTest {
         Assert.assertEquals(specification.getAggregation().getSize(), Aggregation.DEFAULT_SIZE);
         Assert.assertTrue(specification.isAcceptingData());
         Assert.assertEquals(specification.getAggregate(), emptyList());
+    }
+
+
+    @Test
+    public void testExtractField() {
+        BulletRecord record = RecordBox.get().add("field", "foo").add("map_field.foo", "bar")
+                                             .addMap("map_field", Pair.of("foo", "baz"))
+                                             .addList("list_field", singletonMap("foo", "baz"))
+                                             .getRecord();
+
+        Assert.assertNull(Specification.extractField(null, record));
+        Assert.assertNull(Specification.extractField("", record));
+        Assert.assertNull(Specification.extractField("id", record));
+        Assert.assertEquals(Specification.extractField("map_field.foo", record), "baz");
+        Assert.assertNull(Specification.extractField("list_field.bar", record));
     }
 
     @Test

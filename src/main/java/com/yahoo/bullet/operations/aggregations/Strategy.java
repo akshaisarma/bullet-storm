@@ -6,6 +6,8 @@
 package com.yahoo.bullet.operations.aggregations;
 
 import com.yahoo.bullet.record.BulletRecord;
+import com.yahoo.bullet.result.Clip;
+import com.yahoo.bullet.result.Metadata;
 
 import java.util.List;
 
@@ -14,7 +16,7 @@ public interface Strategy {
      * Returns true if more data will be consumed or combined. This method can be used to avoid passing more
      * data into this Strategy.
      *
-     * @return a boolean denoting whether the next consumption or combination will occur.
+     * @return A boolean denoting whether the next consumption or combination will occur.
      */
     default boolean isAcceptingData() {
         return true;
@@ -24,7 +26,7 @@ public interface Strategy {
      * Returns true if the data consumed/combined constitutes a micro-batch. In the case where micro-batching is
      * done and all aggregation strategies are meant to be additive, the strategy will reset its aggregation state.
      *
-     * @return a boolean denoting if the data consumed/combined so far constitutes a micro-batch.
+     * @return A boolean denoting if the data consumed/combined so far constitutes a micro-batch.
      */
     default boolean isMicroBatch() {
         return false;
@@ -53,9 +55,10 @@ public interface Strategy {
     byte[] getSerializedAggregation();
 
     /**
-     * Get the Aggregation done so far as a {@link List}.
+     * Get the Aggregation done so far as a {@link Clip}.
      *
-     * @return the resulting aggregation of the data combined so far.
+     * @return The resulting {@link Clip} representing aggregation and metadata of the data aggregated so far.
      */
-    List<BulletRecord> getAggregation();
+    Clip getAggregation();
 }
+

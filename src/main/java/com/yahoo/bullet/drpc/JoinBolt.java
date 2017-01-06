@@ -242,10 +242,10 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
         Objects.requireNonNull(returnTuple);
 
         // TODO Anchor this tuple to all tuples that caused its emission : rule tuple, return tuple, data tuple(s)
-        List<BulletRecord> records = rule.getData();
-        Metadata meta = getMetadata(id, rule);
-        emit(Clip.of(records).add(meta), returnTuple);
-        int emitted = records.size();
+        Clip records = rule.getData();
+        records.add(getMetadata(id, rule));
+        emit(records, returnTuple);
+        int emitted = records.getRecords().size();
         log.info("Rule {} has been satisfied with {} records. Cleaning up...", id, emitted);
         rulesMap.remove(id);
         bufferedRules.remove(id);
