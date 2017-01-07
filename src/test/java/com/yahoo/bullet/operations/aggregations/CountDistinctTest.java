@@ -49,7 +49,7 @@ public class CountDistinctTest {
 
     @SafeVarargs
     public static CountDistinct makeCountDistinct(List<String> fields, String newName, Map.Entry<Concept, String>... metadata) {
-        return makeCountDistinct(new HashMap<>(), newName, fields, metadata);
+        return makeCountDistinct(makeConfiguration(8, 1024), newName, fields, metadata);
     }
 
     public static CountDistinct makeCountDistinct(List<String> fields, String newName) {
@@ -66,7 +66,7 @@ public class CountDistinctTest {
         return makeCountDistinct(configuration, null, fields, metadata);
     }
 
-    public static Map makeConfiguration(int resizeFactor, float sampling, String family, String separator, int k) {
+    public static Map<Object, Object> makeConfiguration(int resizeFactor, float sampling, String family, String separator, int k) {
         Map<Object, Object> config = new HashMap<>();
         config.put(BulletConfig.COUNT_DISTINCT_AGGREGATION_SKETCH_ENTRIES, k);
         config.put(BulletConfig.COUNT_DISTINCT_AGGREGATION_SKETCH_RESIZE_FACTOR, resizeFactor);
@@ -76,7 +76,7 @@ public class CountDistinctTest {
         return config;
     }
 
-    public static Map makeConfiguration(int resizeFactor, int k) {
+    public static Map<Object, Object>  makeConfiguration(int resizeFactor, int k) {
         return makeConfiguration(resizeFactor, CountDistinct.DEFAULT_SAMPLING_PROBABILITY,
                                  CountDistinct.DEFAULT_UPDATE_SKETCH_FAMILY, Aggregation.DEFAULT_FIELD_SEPARATOR, k);
     }
@@ -213,5 +213,101 @@ public class CountDistinctTest {
         Assert.assertTrue(actualEstimate <= upperTwoSigma);
         Assert.assertTrue(actualEstimate >= lowerThreeSigma);
         Assert.assertTrue(actualEstimate <= upperThreeSigma);
+    }
+
+    @Test
+    public void testNewNamingOfResult() {
+        Map<Object, Object> config = makeConfiguration(4, 1024);
+        CountDistinct countDistinct = makeCountDistinct(config, "myCount", asList("field"),
+                                                        Pair.of(Concept.AGGREGATION_METADATA, "stats"),
+                                                        Pair.of(Concept.ESTIMATED_RESULT, "est"));
+
+        IntStream.range(0, 1000).mapToObj(i -> RecordBox.get().add("field", i).getRecord())
+                                .forEach(countDistinct::consume);
+
+        Clip clip = countDistinct.getAggregation();
+
+        Map<String, Object> meta = clip.getMeta().asMap();
+        Assert.assertEquals(meta.size(), 1);
+        Assert.assertTrue(meta.containsKey("stats"));
+        Map<String, Object> stats = (Map<String, Object>) meta.get("stats");
+        Assert.assertEquals(stats.size(), 1);
+        Assert.assertFalse((Boolean) stats.get("est"));
+
+        Assert.assertEquals(clip.getRecords().size(), 1);
+        BulletRecord actual = clip.getRecords().get(0);
+        BulletRecord expected = RecordBox.get().add("myCount", 1000.0).getRecord();
+        Assert.assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testCombiningExact() {
+        Map<Object, Object> config = makeConfiguration(4, 1024);
+        CountDistinct countDistinct = makeCountDistinct(config, "myCount", asList("field"));
+
+        IntStream.range(0, 512).mapToObj(i -> RecordBox.get().add("field", i).getRecord())
+                               .forEach(countDistinct::consume);
+
+        byte[] firstAggregate = countDistinct.getSerializedAggregation();
+
+        // Another one
+        countDistinct = makeCountDistinct(config, "myCount", asList("field"));
+
+        IntStream.range(256, 768).mapToObj(i -> RecordBox.get().add("field", i).getRecord())
+                               .forEach(countDistinct::consume);
+
+        byte[] secondAggregate = countDistinct.getSerializedAggregation();
+
+        // Final one
+        countDistinct = makeCountDistinct(config, "myCount", asList("field"),
+                                          Pair.of(Concept.AGGREGATION_METADATA, "stats"),
+                                          Pair.of(Concept.ESTIMATED_RESULT, "est"));
+
+        countDistinct.combine(firstAggregate);
+        countDistinct.combine(secondAggregate);
+
+        Clip clip = countDistinct.getAggregation();
+
+        Map<String, Object> meta = clip.getMeta().asMap();
+        Assert.assertEquals(meta.size(), 1);
+        Assert.assertTrue(meta.containsKey("stats"));
+        Map<String, Object> stats = (Map<String, Object>) meta.get("stats");
+        Assert.assertEquals(stats.size(), 1);
+        Assert.assertFalse((Boolean) stats.get("est"));
+
+        Assert.assertEquals(clip.getRecords().size(), 1);
+        BulletRecord actual = clip.getRecords().get(0);
+        BulletRecord expected = RecordBox.get().add("myCount", 768.0).getRecord();
+        Assert.assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testCombiningAndConsuming() {
+        Map<Object, Object> config = makeConfiguration(4, 1024);
+        CountDistinct countDistinct = makeCountDistinct(config, "myCount", asList("field"));
+
+        IntStream.range(0, 256).mapToObj(i -> RecordBox.get().add("field", i).getRecord())
+                                .forEach(countDistinct::consume);
+
+        byte[] aggregate = countDistinct.getSerializedAggregation();
+
+        // New one
+        countDistinct = makeCountDistinct(config, "myCount", asList("field"));
+
+        IntStream.range(0, 768).mapToObj(i -> RecordBox.get().add("field", i).getRecord())
+                .forEach(countDistinct::consume);
+
+        countDistinct.combine(aggregate);
+
+
+        Clip clip = countDistinct.getAggregation();
+
+        Map<String, Object> meta = clip.getMeta().asMap();
+        Assert.assertEquals(meta.size(), 0);
+
+        Assert.assertEquals(clip.getRecords().size(), 1);
+        BulletRecord actual = clip.getRecords().get(0);
+        BulletRecord expected = RecordBox.get().add("myCount", 768.0).getRecord();
+        Assert.assertEquals(actual, expected);
     }
 }
