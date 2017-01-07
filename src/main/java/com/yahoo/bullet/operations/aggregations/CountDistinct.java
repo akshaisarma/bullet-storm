@@ -41,19 +41,17 @@ public class CountDistinct implements Strategy {
     public static final String DEFAULT_NEW_NAME = "COUNT DISTINCT";
 
     // Separator for multiple fields when inserting into the Sketch
-    private String separator = DEFAULT_FIELD_SEPARATOR;
-
-    public static final String DEFAULT_FIELD_SEPARATOR = "|";
+    private String separator;
 
     // Sketch defaults
     // No sampling
     public static final float DEFAULT_SAMPLING_PROBABILITY = 1.0f;
 
     // Recommended for real-time systems
-    public static final Family DEFAULT_UPDATE_SKETCH_FAMILY = Family.ALPHA;
+    public static final String DEFAULT_UPDATE_SKETCH_FAMILY = Family.ALPHA.getFamilyName();
 
     // Sketch * 8 its size upto 2 * nominal entries everytime it reaches cap
-    public static final ResizeFactor DEFAULT_RESIZE_FACTOR = ResizeFactor.X8;
+    public static final int DEFAULT_RESIZE_FACTOR = ResizeFactor.X8.lg();
 
     // This gives us (Alpha sketches fall back to QuickSelect RSEs after compaction or set operations) a 2.34% error
     // rate at 99.73% confidence (3 Standard Deviations).
@@ -82,20 +80,31 @@ public class CountDistinct implements Strategy {
      */
     @SuppressWarnings("unchecked")
     public CountDistinct(Aggregation aggregation) {
+        Map config = aggregation.getConfiguration();
+        Map<String, Object> attributes = aggregation.getAttributes();
+
         fields = aggregation.getFields().keySet();
-        newName = (aggregation.getAttributes().getOrDefault(NEW_NAME_KEY, DEFAULT_NEW_NAME)).toString();
+        newName = attributes == null ? DEFAULT_NEW_NAME :
+                                       attributes.getOrDefault(NEW_NAME_KEY, DEFAULT_NEW_NAME).toString();
+        metadataKeys = (Map<String, String>) config.getOrDefault(BulletConfig.RESULT_METADATA_METRICS_MAPPING,
+                                                                 Collections.emptyMap());
 
-        // TODO: Make the following Sketch parameters configurable.
-        float samplingProbability = DEFAULT_SAMPLING_PROBABILITY;
-        Family sketchFamily = DEFAULT_UPDATE_SKETCH_FAMILY;
-        ResizeFactor resizeFactor = DEFAULT_RESIZE_FACTOR;
-        int nominalEntries = DEFAULT_NOMINAL_ENTRIES;
+        separator = config.getOrDefault(BulletConfig.AGGREGATION_COMPOSITE_FIELD_SEPARATOR,
+                                        Aggregation.DEFAULT_FIELD_SEPARATOR).toString();
 
-        metadataKeys = (Map<String, String>) aggregation.getConfiguration()
-                                                        .getOrDefault(BulletConfig.RESULT_METADATA_METRICS_MAPPING,
-                                                                      Collections.emptyMap());
+        float samplingProbability = ((Number) config.getOrDefault(BulletConfig.COUNT_DISTINCT_AGGREGATION_SKETCH_SAMPLING,
+                                                                  DEFAULT_SAMPLING_PROBABILITY)).floatValue();
 
-        updateSketch = UpdateSketch.builder().setFamily(sketchFamily).setNominalEntries(nominalEntries)
+        Family family = getFamily(config.getOrDefault(BulletConfig.COUNT_DISTINCT_AGGREGATION_SKETCH_FAMILY,
+                                                      DEFAULT_UPDATE_SKETCH_FAMILY).toString());
+
+        ResizeFactor resizeFactor = getResizeFactor((Number) config.getOrDefault(BulletConfig.COUNT_DISTINCT_AGGREGATION_SKETCH_RESIZE_FACTOR,
+                                                                                 DEFAULT_RESIZE_FACTOR));
+
+        int nominalEntries = ((Number) config.getOrDefault(BulletConfig.COUNT_DISTINCT_AGGREGATION_SKETCH_ENTRIES,
+                                                           DEFAULT_NOMINAL_ENTRIES)).intValue();
+
+        updateSketch = UpdateSketch.builder().setFamily(family).setNominalEntries(nominalEntries)
                                              .setP(samplingProbability).setResizeFactor(resizeFactor)
                                              .build();
 
@@ -200,6 +209,36 @@ public class CountDistinct implements Strategy {
     private void addIfKeyNonNull(Map<String, Object> metadata, String key, Supplier<Object> supplier) {
         if (key != null) {
             metadata.put(key, supplier.get());
+        }
+    }
+
+    /**
+     * Convert a String family into a {@link Family}. For testing.
+     *
+     * @param family The string version of the {@link Family}. Currently, QuickSelect and Alpha are supported.
+     * @return The Sketch family represented by the string or {@link #DEFAULT_UPDATE_SKETCH_FAMILY} otherwise.
+     */
+    static Family getFamily(String family) {
+        return Family.QUICKSELECT.getFamilyName().equals(family) ? Family.QUICKSELECT : Family.ALPHA;
+    }
+
+    /**
+     * Converts a integer representing the resizing for Sketches into a {@link ResizeFactor}. For testing.
+     *
+     * @param factor An int representing the scaling when the Sketch reaches its threshold. Supports 1, 2, 4 and 8.
+     * @return A {@link ResizeFactor} represented by the integer or {@link #DEFAULT_RESIZE_FACTOR} otherwise.
+     */
+    static ResizeFactor getResizeFactor(Number factor) {
+        int resizeFactor = factor.intValue();
+        switch (resizeFactor) {
+            case 1:
+                return ResizeFactor.X1;
+            case 2:
+                return ResizeFactor.X2;
+            case 4:
+                return ResizeFactor.X4;
+            default:
+                return ResizeFactor.X8;
         }
     }
 }

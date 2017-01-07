@@ -51,7 +51,9 @@ public class Aggregation implements Configurable, Validatable {
 
     // We only support COUNT for now.
     public static final Set<AggregationType> SUPPORTED_AGGREGATION_TYPES = new HashSet<>(asList(AggregationType.GROUP,
+                                                                                                AggregationType.COUNT_DISTINCT,
                                                                                                 AggregationType.RAW));
+
     public static final Set<GroupOperationType> SUPPORTED_GROUP_OPERATIONS = new HashSet<>(asList(GroupOperationType.COUNT,
                                                                                                   GroupOperationType.AVG,
                                                                                                   GroupOperationType.MAX,
@@ -76,6 +78,8 @@ public class Aggregation implements Configurable, Validatable {
 
     public static final Integer DEFAULT_SIZE = 1;
     public static final Integer DEFAULT_MAX_SIZE = 30;
+
+    public static final String DEFAULT_FIELD_SEPARATOR = "|";
 
     public static final String OPERATIONS = "operations";
     public static final String OPERATION_TYPE = "type";
