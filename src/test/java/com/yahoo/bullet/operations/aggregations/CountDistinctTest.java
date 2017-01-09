@@ -310,4 +310,42 @@ public class CountDistinctTest {
         BulletRecord expected = RecordBox.get().add("myCount", 768.0).getRecord();
         Assert.assertEquals(actual, expected);
     }
+
+    @Test
+    public void testMultipleFieldsCountDistinct() {
+        Map<Object, Object> config = makeConfiguration(4, 512);
+        CountDistinct countDistinct = makeCountDistinct(config, "myCount", asList("fieldA", "fieldB"));
+        IntStream.range(0, 256).mapToObj(i -> RecordBox.get().add("fieldA", i).add("fieldB", 255 - i).getRecord())
+                               .forEach(countDistinct::consume);
+        IntStream.range(0, 256).mapToObj(i -> RecordBox.get().add("fieldA", i).add("fieldB", 255 - i).getRecord())
+                               .forEach(countDistinct::consume);
+
+        Clip clip = countDistinct.getAggregation();
+        Assert.assertEquals(clip.getRecords().size(), 1);
+        BulletRecord actual = clip.getRecords().get(0);
+        BulletRecord expected = RecordBox.get().add("myCount", 256.0).getRecord();
+        Assert.assertEquals(actual, expected);
+    }
+
+    @Test
+    public void testMultipleFieldsCountDistinctAmbiguity() {
+        Map<Object, Object> config = makeConfiguration(4, 512);
+
+        String s = Aggregation.DEFAULT_FIELD_SEPARATOR;
+        CountDistinct countDistinct = makeCountDistinct(config, "myCount", asList("fieldA", "fieldB"));
+        BulletRecord first = RecordBox.get().add("fieldA", s).add("fieldB", s + s).getRecord();
+        BulletRecord second = RecordBox.get().add("fieldA", s + s).add("fieldB", s).getRecord();
+        // first and second will look the same to the Sketch. third will not
+        BulletRecord third = RecordBox.get().add("fieldA", s + s).add("fieldB", s + s).getRecord();
+
+        countDistinct.consume(first);
+        countDistinct.consume(second);
+        countDistinct.consume(third);
+
+        Clip clip = countDistinct.getAggregation();
+        Assert.assertEquals(clip.getRecords().size(), 1);
+        BulletRecord actual = clip.getRecords().get(0);
+        BulletRecord expected = RecordBox.get().add("myCount", 2.0).getRecord();
+        Assert.assertEquals(actual, expected);
+    }
 }

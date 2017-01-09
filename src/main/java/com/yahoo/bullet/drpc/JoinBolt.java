@@ -25,7 +25,6 @@ import org.apache.storm.utils.Utils;
 
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -45,8 +44,6 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
     private RotatingMap<Long, Clip> bufferedErrors;
     // For doing a LEFT OUTER JOIN between Rules and intermediate aggregation, if the aggregations are lagging.
     private RotatingMap<Long, AggregationRule> bufferedRules;
-
-    private Map<String, String> metadataKeys;
 
     /**
      * Default constructor.
@@ -69,24 +66,15 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
 
         activeReturns = new HashMap<>();
 
-        Number errorTickoutNumber = (Number) configuration.getOrDefault(BulletConfig.JOIN_BOLT_ERROR_TICK_TIMEOUT, DEFAULT_ERROR_TICKOUT);
+        Number errorTickoutNumber = (Number) configuration.getOrDefault(BulletConfig.JOIN_BOLT_ERROR_TICK_TIMEOUT,
+                                                                        DEFAULT_ERROR_TICKOUT);
         int errorTickout = errorTickoutNumber.intValue();
         bufferedErrors = new RotatingMap<>(errorTickout);
 
-        Number ruleTickoutNumber = (Number) configuration.getOrDefault(BulletConfig.JOIN_BOLT_RULE_TICK_TIMEOUT, DEFAULT_RULE_TICKOUT);
+        Number ruleTickoutNumber = (Number) configuration.getOrDefault(BulletConfig.JOIN_BOLT_RULE_TICK_TIMEOUT,
+                                                                       DEFAULT_RULE_TICKOUT);
         int ruleTickout = ruleTickoutNumber.intValue();
         bufferedRules = new RotatingMap<>(ruleTickout);
-
-        // Get all known Concepts
-        metadataKeys = Metadata.getConceptNames(configuration, new HashSet<>(Metadata.KNOWN_CONCEPTS));
-        if (!metadataKeys.isEmpty()) {
-            log.info("Metadata collection is enabled");
-            log.info("Collecting metadata for these concepts:\n{}", metadataKeys);
-            // Add all metadataKeys back to configuration for use by Aggregation Strategies.
-            // This is so, they don't have to recreate them on every new rule
-            configuration.put(BulletConfig.RESULT_METADATA_METRICS_MAPPING, metadataKeys);
-        }
-
     }
 
     @Override

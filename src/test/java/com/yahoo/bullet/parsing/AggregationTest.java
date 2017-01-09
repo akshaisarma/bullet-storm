@@ -147,7 +147,7 @@ public class AggregationTest {
         Aggregation aggregation = new Aggregation();
         aggregation.setType(GROUP);
         aggregation.setAttributes(makeAttributes(makeGroupOperation(SUM, null, null)));
-        aggregation.configure(new HashMap<>());
+        aggregation.configure(emptyMap());
 
         List<Error> errors = aggregation.validate().get();
         Assert.assertEquals(errors.size(), 1);
@@ -159,7 +159,7 @@ public class AggregationTest {
         Aggregation aggregation = new Aggregation();
         aggregation.setType(GROUP);
         aggregation.setAttributes(makeAttributes(makeGroupOperation(COUNT_FIELD, "someField", "myCountField")));
-        aggregation.configure(new HashMap<>());
+        aggregation.configure(emptyMap());
 
         Set<GroupOperation> operations = aggregation.getGroupOperations();
         Assert.assertEquals(operations.size(), 0);
@@ -227,6 +227,18 @@ public class AggregationTest {
         TestHelpers.assertContains(operations, new GroupOperation(COUNT, null, null));
         TestHelpers.assertContains(operations, new GroupOperation(COUNT, "foo", null));
         TestHelpers.assertContains(operations, new GroupOperation(COUNT, "bar", null));
+    }
+
+    @Test
+    public void testFailValidateOnCountDistinctFieldsMissing() {
+        Aggregation aggregation = new Aggregation();
+        aggregation.setType(COUNT_DISTINCT);
+        aggregation.configure(emptyMap());
+
+        List<Error> errors = aggregation.validate().get();
+        Assert.assertEquals(errors.size(), 1);
+        Assert.assertEquals(errors.get(0), Aggregation.COUNT_DISTINCT_REQUIRES_FIELD_ERROR);
+
     }
 
     @Test

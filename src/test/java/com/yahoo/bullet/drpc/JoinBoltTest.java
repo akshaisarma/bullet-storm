@@ -8,6 +8,7 @@ package com.yahoo.bullet.drpc;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.yahoo.bullet.BulletConfig;
+import com.yahoo.bullet.operations.aggregations.CountDistinct;
 import com.yahoo.bullet.operations.aggregations.GroupData;
 import com.yahoo.bullet.operations.aggregations.GroupOperation;
 import com.yahoo.bullet.parsing.Aggregation;
@@ -18,6 +19,7 @@ import com.yahoo.bullet.result.Metadata;
 import com.yahoo.bullet.result.Metadata.Concept;
 import com.yahoo.bullet.result.RecordBox;
 import com.yahoo.bullet.tracing.AggregationRule;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.storm.topology.IRichBolt;
 import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Tuple;
@@ -34,6 +36,7 @@ import java.util.stream.IntStream;
 
 import static com.yahoo.bullet.TestHelpers.assertJSONEquals;
 import static com.yahoo.bullet.TestHelpers.getListBytes;
+import static com.yahoo.bullet.operations.AggregationOperations.AggregationType.COUNT_DISTINCT;
 import static com.yahoo.bullet.operations.AggregationOperations.AggregationType.GROUP;
 import static com.yahoo.bullet.operations.AggregationOperations.AggregationType.RAW;
 import static com.yahoo.bullet.operations.AggregationOperations.AggregationType.TOP;
@@ -43,9 +46,9 @@ import static com.yahoo.bullet.parsing.RuleUtils.getAggregationRule;
 import static com.yahoo.bullet.parsing.RuleUtils.makeAggregationRule;
 import static com.yahoo.bullet.parsing.RuleUtils.makeGroupFilterRule;
 import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonList;
+import static java.util.Collections.singletonMap;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
@@ -595,7 +598,7 @@ public class JoinBoltTest {
 
         Tuple rule = TupleUtils.makeIDTuple(TupleType.Type.RULE_TUPLE, 42L,
                                             makeGroupFilterRule("timestamp", asList("1", "2"), EQUALS,
-                                                                GROUP, 1, emptyList(),
+                                                                GROUP, 1,
                                                                 singletonList(new GroupOperation(COUNT,
                                                                                                  null, "cnt"))));
         bolt.execute(rule);
@@ -644,6 +647,49 @@ public class JoinBoltTest {
         Tuple expected = TupleUtils.makeTuple(TupleType.Type.JOIN_TUPLE, Clip.of(actualSent).asJSON(), "");
         Assert.assertTrue(collector.wasNthEmitted(expected, 1));
         Assert.assertEquals(collector.getAllEmitted().count(), 1);
+    }
 
+    @Test
+    public void testCountDistinct() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(BulletConfig.COUNT_DISTINCT_AGGREGATION_SKETCH_ENTRIES, 512);
+
+        Aggregation aggregation = new Aggregation();
+        aggregation.setConfiguration(config);
+        aggregation.setFields(singletonMap("field", "foo"));
+
+        CountDistinct distinct = new CountDistinct(aggregation);
+        IntStream.range(0, 256).mapToObj(i -> RecordBox.get().add("field", i).getRecord()).forEach(distinct::consume);
+        byte[] first = distinct.getSerializedAggregation();
+
+        distinct = new CountDistinct(aggregation);
+        IntStream.range(128, 256).mapToObj(i -> RecordBox.get().add("field", i).getRecord()).forEach(distinct::consume);
+        byte[] second = distinct.getSerializedAggregation();
+
+        // Send generated data to JoinBolt
+        bolt = ComponentUtils.prepare(config, new ExpiringJoinBolt(), collector);
+
+        Tuple rule = TupleUtils.makeIDTuple(TupleType.Type.RULE_TUPLE, 42L,
+                                            makeAggregationRule(COUNT_DISTINCT, 1, null, Pair.of("field", "field")));
+        bolt.execute(rule);
+        Tuple returnInfo = TupleUtils.makeIDTuple(TupleType.Type.RETURN_TUPLE, 42L, "");
+        bolt.execute(returnInfo);
+
+        sendRawByteTuplesTo(bolt, 42L, asList(first, second));
+
+        List<BulletRecord> result = singletonList(RecordBox.get().add(CountDistinct.DEFAULT_NEW_NAME, 256.0).getRecord());
+        Tuple expected = TupleUtils.makeTuple(TupleType.Type.JOIN_TUPLE, Clip.of(result).asJSON(), "");
+
+        Tuple tick = TupleUtils.makeTuple(TupleType.Type.TICK_TUPLE);
+        bolt.execute(tick);
+        bolt.execute(tick);
+        for (int i = 0; i < JoinBolt.DEFAULT_RULE_TICKOUT - 1; ++i) {
+            bolt.execute(tick);
+            Assert.assertFalse(collector.wasTupleEmitted(expected));
+        }
+        bolt.execute(tick);
+
+        Assert.assertTrue(collector.wasNthEmitted(expected, 1));
+        Assert.assertEquals(collector.getAllEmitted().count(), 1);
     }
 }
