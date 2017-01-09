@@ -9,9 +9,11 @@ import com.google.gson.annotations.Expose;
 import com.yahoo.bullet.BulletConfig;
 import com.yahoo.bullet.record.BulletRecord;
 import com.yahoo.bullet.result.Clip;
+import com.yahoo.bullet.result.Metadata;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,7 +23,7 @@ import java.util.Optional;
 /**
  * This class is the top level Bullet Rule Specification. It holds the definition of the Rule.
  */
-@Getter @Setter(AccessLevel.PACKAGE)
+@Getter @Setter(AccessLevel.PACKAGE) @Slf4j
 public class Specification implements Configurable, Validatable  {
     @Expose
     private Projection projection;
@@ -39,6 +41,8 @@ public class Specification implements Configurable, Validatable  {
     public static final Integer DEFAULT_DURATION_MS = 30 * 1000;
     public static final Integer DEFAULT_MAX_DURATION_MS = 120 * 1000;
     public static final String SUB_KEY_SEPERATOR = "\\.";
+
+    public static final String AGGREGATION_FAILURE_RESOLUTION = "Please try again later";
 
     /**
      * Default constructor. GSON recommended.
@@ -81,7 +85,12 @@ public class Specification implements Configurable, Validatable  {
      * @param record The record to insert into the aggregation.
      */
     public void aggregate(BulletRecord record) {
-        aggregation.getStrategy().consume(record);
+        try {
+            aggregation.getStrategy().consume(record);
+        } catch (RuntimeException e) {
+            log.error("Unable to consume {} for rule {}", record, this);
+            log.error("Skipping due to", e);
+        }
     }
 
     /**
@@ -90,7 +99,42 @@ public class Specification implements Configurable, Validatable  {
      * @param data The serialized data that represents a partial aggregation.
      */
     public void aggregate(byte[] data) {
-        aggregation.getStrategy().combine(data);
+        try {
+            aggregation.getStrategy().combine(data);
+        } catch (RuntimeException e) {
+            log.error("Unable to aggregate {} for rule {}", data, this);
+            log.error("Skipping due to", e);
+        }
+    }
+
+    /**
+     * Get the aggregate matched records so far.
+     *
+     * @return The byte[] representation of the serialized aggregate.
+     */
+    public byte[] getSerializedAggregate() {
+        try {
+            return aggregation.getStrategy().getSerializedAggregation();
+        } catch (RuntimeException e) {
+            log.error("Unable to get serialized aggregation for rule {}", this);
+            log.error("Skipping due to", e);
+            return null;
+        }
+    }
+
+    /**
+     * Gets the aggregated records {@link Clip}.
+     *
+     * @return a non-null {@link Clip} representing the aggregation.
+     */
+    public Clip getAggregate() {
+        try {
+            return aggregation.getStrategy().getAggregation();
+        } catch (RuntimeException e) {
+            log.error("Unable to get serialized aggregation for rule {}", this);
+            log.error("Skipping due to", e);
+            return Clip.of(Metadata.of(Error.makeError(e.getMessage(), AGGREGATION_FAILURE_RESOLUTION)));
+        }
     }
 
     /**
@@ -100,24 +144,6 @@ public class Specification implements Configurable, Validatable  {
      */
     public boolean isAcceptingData() {
         return aggregation.getStrategy().isAcceptingData();
-    }
-
-    /**
-     * Get the aggregate matched records so far.
-     *
-     * @return The byte[] representation of the serialized aggregate.
-     */
-    public byte[] getSerializedAggregate() {
-        return aggregation.getStrategy().getSerializedAggregation();
-    }
-
-    /**
-     * Gets the aggregated records {@link Clip}.
-     *
-     * @return a non-null {@link Clip} representing the aggregation.
-     */
-    public Clip getAggregate() {
-        return aggregation.getStrategy().getAggregation();
     }
 
     /**
@@ -206,5 +232,11 @@ public class Specification implements Configurable, Validatable  {
      */
     public static String[] getFields(String field) {
         return field.split(SUB_KEY_SEPERATOR, 2);
+    }
+
+    @Override
+    public String toString() {
+        return "{filters: " + filters + ", projection: " + projection + ", aggregation: " + aggregation +
+                ", duration: " + duration + "}";
     }
 }

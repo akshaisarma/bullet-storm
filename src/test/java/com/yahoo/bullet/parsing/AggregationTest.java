@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static com.yahoo.bullet.operations.AggregationOperations.AggregationType.COUNT_DISTINCT;
 import static com.yahoo.bullet.operations.AggregationOperations.AggregationType.GROUP;
 import static com.yahoo.bullet.operations.AggregationOperations.AggregationType.PERCENTILE;
 import static com.yahoo.bullet.operations.AggregationOperations.GroupOperationType.COUNT;
@@ -226,6 +227,25 @@ public class AggregationTest {
         TestHelpers.assertContains(operations, new GroupOperation(COUNT, null, null));
         TestHelpers.assertContains(operations, new GroupOperation(COUNT, "foo", null));
         TestHelpers.assertContains(operations, new GroupOperation(COUNT, "bar", null));
+    }
+
+    @Test
+    public void testToString() {
+        Aggregation aggregation = new Aggregation();
+        aggregation.configure(emptyMap());
+
+        Assert.assertEquals(aggregation.toString(), "{size: 1, type: RAW, fields: null, attributes: null}");
+
+        aggregation.setType(COUNT_DISTINCT);
+        Assert.assertEquals(aggregation.toString(), "{size: 1, type: COUNT_DISTINCT, fields: null, attributes: null}");
+
+        aggregation.setFields(singletonMap("field", "newName"));
+        Assert.assertEquals(aggregation.toString(),
+                            "{size: 1, type: COUNT_DISTINCT, " + "fields: {field=newName}, attributes: null}");
+
+        aggregation.setAttributes(singletonMap("foo", asList(1, 2, 3)));
+        Assert.assertEquals(aggregation.toString(),
+                "{size: 1, type: COUNT_DISTINCT, " + "fields: {field=newName}, attributes: {foo=[1, 2, 3]}}");
     }
 }
 

@@ -165,7 +165,7 @@ public class CountDistinct implements Strategy {
     }
 
     private static String getFieldsAsString(Set<String> fields, BulletRecord record, String separator) {
-        // This explicitly does not do a TypedObject checking
+        // This explicitly does not do a TypedObject checking. Nulls turn into a String that will be counted.
         return fields.stream().map(field -> Specification.extractField(field, record))
                               .map(Objects::toString)
                               .collect(Collectors.joining(separator));

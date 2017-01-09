@@ -173,4 +173,9 @@ public class Aggregation implements Configurable, Validatable {
         // Unknown GroupOperations are ignored.
         return operation.isPresent() ? new GroupOperation(operation.get(), field, newName) : null;
     }
+
+    @Override
+    public String toString() {
+        return "{size: " + size + ", type: " + type + ", fields: " + fields + ", attributes: " + attributes + "}";
+    }
 }
