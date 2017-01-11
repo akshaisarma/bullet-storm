@@ -8,6 +8,7 @@ package com.yahoo.bullet.drpc;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.yahoo.bullet.BulletConfig;
+import com.yahoo.bullet.operations.SerializerDeserializer;
 import com.yahoo.bullet.operations.aggregations.CountDistinct;
 import com.yahoo.bullet.operations.aggregations.grouping.GroupData;
 import com.yahoo.bullet.operations.aggregations.grouping.GroupOperation;
@@ -99,7 +100,7 @@ public class JoinBoltTest {
         GroupData groupData = new GroupData(new HashSet<>(singletonList(new GroupOperation(COUNT,
                                                                         null, countField))));
         IntStream.range(0, count).forEach(i -> groupData.consume(RecordBox.get().getRecord()));
-        return GroupData.toBytes(groupData);
+        return SerializerDeserializer.toBytes(groupData);
     }
 
     public static final void enableMetadataInConfig(Map<String, Object> config, String metaConcept, String key) {

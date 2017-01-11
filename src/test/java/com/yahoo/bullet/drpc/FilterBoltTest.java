@@ -9,6 +9,7 @@ import com.yahoo.bullet.BulletConfig;
 import com.yahoo.bullet.TestHelpers;
 import com.yahoo.bullet.operations.AggregationOperations.AggregationType;
 import com.yahoo.bullet.operations.FilterOperations;
+import com.yahoo.bullet.operations.SerializerDeserializer;
 import com.yahoo.bullet.operations.aggregations.CountDistinct;
 import com.yahoo.bullet.operations.aggregations.grouping.GroupData;
 import com.yahoo.bullet.operations.aggregations.grouping.GroupOperation;
@@ -492,7 +493,7 @@ public class FilterBoltTest {
         bolt.execute(tick);
 
         Assert.assertEquals(collector.getEmittedCount(), 1);
-        GroupData actual = GroupData.fromBytes(getRawPayloadOfNthTuple(1));
+        GroupData actual = SerializerDeserializer.fromBytes(getRawPayloadOfNthTuple(1));
         BulletRecord expected = RecordBox.get().add("cnt", 10).getRecord();
 
         Assert.assertTrue(isEqual(actual, expected));

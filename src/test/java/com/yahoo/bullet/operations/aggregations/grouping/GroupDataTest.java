@@ -6,6 +6,7 @@
 package com.yahoo.bullet.operations.aggregations.grouping;
 
 import com.yahoo.bullet.operations.AggregationOperations.GroupOperationType;
+import com.yahoo.bullet.operations.SerializerDeserializer;
 import com.yahoo.bullet.parsing.Aggregation;
 import com.yahoo.bullet.record.BulletRecord;
 import com.yahoo.bullet.result.RecordBox;
@@ -26,78 +27,8 @@ import java.util.stream.IntStream;
 import static java.util.Arrays.asList;
 
 public class GroupDataTest {
-    private class NotSerializable {
-        private int foo;
-    }
-
-    private class UnserializableGroupData extends GroupData {
-        private NotSerializable notSerializable = new NotSerializable();
-
-        public UnserializableGroupData(Set<GroupOperation> operations) {
-            super(operations);
-        }
-    }
-
-    private GroupData make(byte[] data) {
-        try {
-            ByteArrayInputStream bis = new ByteArrayInputStream(data);
-            ObjectInputStream ois = new ObjectInputStream(bis);
-            return (GroupData) ois.readObject();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private byte[] unmake(GroupData data) {
-        try {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            ObjectOutputStream ois = new ObjectOutputStream(bos);
-            ois.writeObject(data);
-            return bos.toByteArray();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     public static GroupData make(GroupOperation... operations) {
         return new GroupData(new HashSet<>(asList(operations)));
-    }
-
-    @Test
-    public void testManualSerializationFailing() {
-        GroupData bad = new UnserializableGroupData(Collections.emptySet());
-        Assert.assertNull(GroupData.toBytes(bad));
-    }
-
-    @Test
-    public void testManualSerialization() {
-        GroupData data = make(new GroupOperation(GroupOperationType.COUNT, null, "foo"));
-        BulletRecord sample = RecordBox.get().getRecord();
-        IntStream.range(0, 5).forEach(i -> data.consume(sample));
-
-        byte[] serialized = GroupData.toBytes(data);
-        Assert.assertNotNull(serialized);
-
-        GroupData remade = make(serialized);
-        BulletRecord expected = RecordBox.get().add("foo", 5L).getRecord();
-        Assert.assertEquals(remade.getAsBulletRecord(), expected);
-    }
-
-    @Test
-    public void testManualDeserializationFailing() {
-        Assert.assertNull(GroupData.fromBytes(null));
-    }
-
-    @Test
-    public void testManualDeserialization() {
-        GroupData data = make(new GroupOperation(GroupOperationType.COUNT, null, "foo"));
-        BulletRecord sample = RecordBox.get().getRecord();
-        IntStream.range(0, 5).forEach(i -> data.consume(sample));
-
-        byte[] serialized = unmake(data);
-        GroupData remade = GroupData.fromBytes(serialized);
-        BulletRecord expected = RecordBox.get().add("foo", 5L).getRecord();
-        Assert.assertEquals(remade.getAsBulletRecord(), expected);
     }
 
     @Test
@@ -189,7 +120,7 @@ public class GroupDataTest {
                                  new GroupOperation(GroupOperationType.AVG, "groupField", "myAvg"));
         asList(1.1, 4.4, -44.0, 12345.67, 3.3).stream().map(x -> RecordBox.get().add("groupField", x).getRecord())
                                                        .forEach(data::consume);
-        byte[] serialized = GroupData.toBytes(another);
+        byte[] serialized = SerializerDeserializer.toBytes(another);
 
         data.combine(serialized);
 
@@ -249,7 +180,7 @@ public class GroupDataTest {
 
         GroupData another = make(new GroupOperation(GroupOperationType.AVG, "foo", "bar"));
         IntStream.range(0, 21).forEach(i -> another.consume(someRecord));
-        byte[] serialized = GroupData.toBytes(another);
+        byte[] serialized = SerializerDeserializer.toBytes(another);
 
         // This should combine since we only merge known GroupOperations from the other GroupData
         data.combine(serialized);

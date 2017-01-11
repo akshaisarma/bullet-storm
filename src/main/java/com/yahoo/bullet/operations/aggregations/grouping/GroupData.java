@@ -8,16 +8,14 @@ package com.yahoo.bullet.operations.aggregations.grouping;
 import com.yahoo.bullet.operations.AggregationOperations;
 import com.yahoo.bullet.operations.AggregationOperations.AggregationOperator;
 import com.yahoo.bullet.operations.AggregationOperations.GroupOperationType;
+import com.yahoo.bullet.operations.SerializerDeserializer;
 import com.yahoo.bullet.record.BulletRecord;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -26,8 +24,7 @@ import static com.yahoo.bullet.operations.AggregationOperations.GroupOperationTy
 
 /**
  * This class represents the results of a GroupOperations. The result is always a {@link Number}, so
- * that is what this class stores. It is {@link Serializable} and provides convenience static methods to
- * manually perform serialization {@link #toBytes(GroupData)} and deserialization {@link #fromBytes(byte[])}
+ * that is what this class stores. It is {@link Serializable}.
  *
  * It can compute all the operations if presented with a {@link BulletRecord}, merge other GroupData and
  * present the results of the operations as a BulletRecord.
@@ -38,14 +35,19 @@ public class GroupData implements Serializable {
 
     public static final String NAME_SEPARATOR = "_";
 
+    private Map<String, String> groupFields;
     private Map<GroupOperation, Number> metrics = new HashMap<>();
 
+
     /**
-     * Constructor that initializes the GroupData with a {@link Set} of {@link GroupOperation}.
+     * Constructor that initializes the GroupData with a {@link Set} of {@link GroupOperation} and a {@link Map} of
+     * Strings that represent the group fields
      *
+     * @param groupFields The fields to their new name mappings that represent this group.
      * @param operations the non-null operations that this will compute metrics for.
      */
-    public GroupData(Set<GroupOperation> operations) {
+    public GroupData(Map<String, String> groupFields, Set<GroupOperation> operations) {
+        this.groupFields = groupFields;
         // Initialize with nulls.
         for (GroupOperation operation : operations) {
             metrics.put(operation, null);
@@ -54,6 +56,15 @@ public class GroupData implements Serializable {
                 metrics.put(new GroupOperation(COUNT_FIELD, operation.getField(), null), null);
             }
         }
+    }
+
+    /**
+     * Constructor that initializes the GroupData with a {@link Set} of {@link GroupOperation}.
+     *
+     * @param operations the non-null operations that this will compute metrics for.
+     */
+    public GroupData(Set<GroupOperation> operations) {
+        this(null, operations);
     }
 
     /**
@@ -72,7 +83,7 @@ public class GroupData implements Serializable {
      * @param serializedGroupData the serialized bytes of a GroupData.
      */
     public void combine(byte[] serializedGroupData) {
-        GroupData otherMetric = GroupData.fromBytes(serializedGroupData);
+        GroupData otherMetric = SerializerDeserializer.fromBytes(serializedGroupData);
         if (otherMetric == null) {
             log.error("Could not create a GroupData. Skipping...");
             return;
@@ -194,47 +205,8 @@ public class GroupData implements Serializable {
         }
         return type.getName() + NAME_SEPARATOR + operation.getField();
     }
-
-    /**
-     * Convenience method to deserialize an instance from raw serialized data produced by {@link #toBytes(GroupData)}.
-     *
-     * @param data The raw serialized byte[] representing the data.
-     * @return A reified object or null if not successful.
-     */
-    public static GroupData fromBytes(byte[] data) {
-        try (
-            ByteArrayInputStream bis = new ByteArrayInputStream(data);
-            ObjectInputStream ois = new ObjectInputStream(bis);
-        ) {
-            return (GroupData) ois.readObject();
-        } catch (IOException | ClassNotFoundException | RuntimeException e) {
-            log.error("Could not reify a GroupData from raw data {}", data);
-            log.error("Exception when parsing GroupData", e);
-        }
-        return null;
-    }
-
-    /**
-     * Convenience method to serializes the given GroupData to raw byte[].
-     *
-     * @param metric The GroupData to serialize.
-     * @return the serialized byte[] or null if not successful.
-     */
-    public static byte[] toBytes(GroupData metric) {
-        try (
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            ObjectOutputStream oos = new ObjectOutputStream(bos);
-        ) {
-            oos.writeObject(metric);
-            return bos.toByteArray();
-        } catch (IOException | RuntimeException e) {
-            log.error("Could not serialize given GroupData contents", metric.metrics);
-            log.error("Exception when serializing GroupData", e);
-        }
-        return null;
-    }
-
     /*
+
      * This function accepts an AggregationOperator and applies it to the new and current value for the given
      * GroupOperation and updates metrics accordingly.
      */

@@ -5,6 +5,7 @@
  */
 package com.yahoo.bullet.operations.aggregations;
 
+import com.yahoo.bullet.operations.SerializerDeserializer;
 import com.yahoo.bullet.operations.aggregations.grouping.GroupData;
 import com.yahoo.bullet.parsing.Aggregation;
 import com.yahoo.bullet.record.BulletRecord;
@@ -38,7 +39,7 @@ public class GroupAll implements Strategy {
 
     @Override
     public byte[] getSerializedAggregation() {
-        return GroupData.toBytes(data);
+        return SerializerDeserializer.toBytes(data);
     }
 
     @Override
