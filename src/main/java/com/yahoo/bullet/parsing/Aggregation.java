@@ -7,15 +7,18 @@ package com.yahoo.bullet.parsing;
 
 import com.google.gson.annotations.Expose;
 import com.yahoo.bullet.BulletConfig;
-import com.yahoo.bullet.operations.AggregationOperations;
 import com.yahoo.bullet.operations.AggregationOperations.AggregationType;
 import com.yahoo.bullet.operations.AggregationOperations.GroupOperationType;
-import com.yahoo.bullet.operations.aggregations.GroupOperation;
+import com.yahoo.bullet.operations.aggregations.CountDistinct;
+import com.yahoo.bullet.operations.aggregations.GroupAll;
+import com.yahoo.bullet.operations.aggregations.Raw;
+import com.yahoo.bullet.operations.aggregations.grouping.GroupOperation;
 import com.yahoo.bullet.operations.aggregations.Strategy;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +27,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.yahoo.bullet.operations.AggregationOperations.isEmpty;
 import static com.yahoo.bullet.parsing.Error.makeError;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
@@ -109,10 +111,10 @@ public class Aggregation implements Configurable, Validatable {
         // Null or negative, then default, else min of size and max
         size = (size == null || size < 0) ? sizeDefault : Math.min(size, sizeMaximum);
 
-        // Parse any group operations first before calling getStrategy
+        // Parse any group operations first before finding Strategy.
         groupOperations = getOperations();
 
-        strategy = AggregationOperations.getStrategyFor(this);
+        strategy = findStrategy();
     }
 
     @Override
@@ -149,6 +151,38 @@ public class Aggregation implements Configurable, Validatable {
         return Optional.empty();
     }
 
+    /**
+     * Returns a new {@link Strategy} instance that can handle this aggregation.
+     *
+     * @return the created instance of a strategy that can implement the provided AggregationType or null if it cannot.
+     */
+    Strategy findStrategy() {
+        if (type == AggregationType.RAW) {
+            return new Raw(this);
+        }
+
+        boolean noFields = isEmpty(fields);
+
+        if (type == AggregationType.COUNT_DISTINCT && !noFields) {
+            return new CountDistinct(this);
+        }
+
+        boolean noOperations = isEmpty(groupOperations);
+        if (type == AggregationType.GROUP && noFields && !noOperations) {
+            return new GroupAll(this);
+        }
+
+        return null;
+    }
+
+    private static boolean isEmpty(Map map) {
+        return map == null || map.isEmpty();
+    }
+
+    private static boolean isEmpty(Collection collection) {
+        return collection == null || collection.isEmpty();
+    }
+
     private Set<GroupOperation> getOperations() {
         if (isEmpty(attributes)) {
             return null;
@@ -165,8 +199,8 @@ public class Aggregation implements Configurable, Validatable {
             List<Map<String, String>> operations = (List<Map<String, String>>) object;
             // Return a list of distinct, non-null, GroupOperations
             return operations.stream().map(Aggregation::makeGroupOperation)
-                                      .filter(Objects::nonNull)
-                                      .collect(Collectors.toSet());
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
         } catch (ClassCastException cce) {
             return null;
         }
@@ -187,4 +221,5 @@ public class Aggregation implements Configurable, Validatable {
     public String toString() {
         return "{size: " + size + ", type: " + type + ", fields: " + fields + ", attributes: " + attributes + "}";
     }
+
 }

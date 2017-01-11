@@ -7,10 +7,16 @@ package com.yahoo.bullet.parsing;
 
 import com.yahoo.bullet.BulletConfig;
 import com.yahoo.bullet.TestHelpers;
-import com.yahoo.bullet.operations.aggregations.GroupOperation;
+import com.yahoo.bullet.operations.AggregationOperations;
+import com.yahoo.bullet.operations.AggregationOperations.GroupOperationType;
+import com.yahoo.bullet.operations.aggregations.CountDistinct;
+import com.yahoo.bullet.operations.aggregations.GroupAll;
+import com.yahoo.bullet.operations.aggregations.Raw;
+import com.yahoo.bullet.operations.aggregations.grouping.GroupOperation;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -258,6 +264,53 @@ public class AggregationTest {
         aggregation.setAttributes(singletonMap("foo", asList(1, 2, 3)));
         Assert.assertEquals(aggregation.toString(),
                 "{size: 1, type: COUNT_DISTINCT, " + "fields: {field=newName}, attributes: {foo=[1, 2, 3]}}");
+    }
+
+    @Test
+    public void testUnimplementedStrategies() {
+        Aggregation aggregation = new Aggregation();
+
+        aggregation.setType(AggregationOperations.AggregationType.GROUP);
+        aggregation.configure(Collections.emptyMap());
+        Assert.assertNull(aggregation.getStrategy());
+
+        aggregation.setType(AggregationOperations.AggregationType.PERCENTILE);
+        aggregation.configure(Collections.emptyMap());
+        Assert.assertNull(aggregation.getStrategy());
+
+        aggregation.setType(AggregationOperations.AggregationType.TOP);
+        aggregation.configure(Collections.emptyMap());
+        Assert.assertNull(aggregation.getStrategy());
+    }
+
+    @Test
+    public void testRawStrategy() {
+        Aggregation aggregation = new Aggregation();
+        aggregation.configure(Collections.emptyMap());
+
+        Assert.assertEquals(aggregation.findStrategy().getClass(), Raw.class);
+    }
+
+    @Test
+    public void testGroupAllStrategy() {
+        Aggregation aggregation = new Aggregation();
+        aggregation.setType(AggregationOperations.AggregationType.GROUP);
+        aggregation.setAttributes(singletonMap(Aggregation.OPERATIONS,
+                                               asList(singletonMap(Aggregation.OPERATION_TYPE,
+                                                                   GroupOperationType.COUNT.getName()))));
+        aggregation.configure(Collections.emptyMap());
+
+        Assert.assertEquals(aggregation.getStrategy().getClass(), GroupAll.class);
+    }
+
+    @Test
+    public void testCountDistinctStrategy() {
+        Aggregation aggregation = new Aggregation();
+        aggregation.setType(AggregationOperations.AggregationType.COUNT_DISTINCT);
+        aggregation.setFields(singletonMap("field", "foo"));
+        aggregation.configure(Collections.emptyMap());
+
+        Assert.assertEquals(aggregation.getStrategy().getClass(), CountDistinct.class);
     }
 }
 
