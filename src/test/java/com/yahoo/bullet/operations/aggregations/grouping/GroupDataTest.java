@@ -13,22 +13,22 @@ import com.yahoo.bullet.result.RecordBox;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.stream.IntStream;
 
 import static java.util.Arrays.asList;
 
 public class GroupDataTest {
+    public static GroupData make(Map<String, String> groupFields, GroupOperation... operations) {
+        return new GroupData(groupFields, new HashSet<>(asList(operations)));
+    }
+
     public static GroupData make(GroupOperation... operations) {
-        return new GroupData(new HashSet<>(asList(operations)));
+        return make(null, operations);
     }
 
     @Test
@@ -476,6 +476,46 @@ public class GroupDataTest {
 
         data.consume(RecordBox.get().add("someField", -4.4).getRecord());
         expected = RecordBox.get().add("foo", 18.6).getRecord();
+        Assert.assertEquals(data.getAsBulletRecord(), expected);
+    }
+
+    @Test
+    public void testGroupFieldsInData() {
+        Map<String, String> fields = new HashMap<>();
+        fields.put("fieldA", "foo");
+        fields.put("fieldB", "bar");
+
+        GroupData data = make(fields, new GroupOperation(GroupOperationType.SUM, "someField", "sum"));
+
+        BulletRecord expected = RecordBox.get().add("fieldA", "foo").add("fieldB", "bar").addNull("sum").getRecord();
+
+        Assert.assertTrue(data.getAsBulletRecord().equals(expected));
+        Assert.assertEquals(data.getAsBulletRecord(), expected);
+
+        data.consume(RecordBox.get().add("someField", 21.0).getRecord());
+        data.consume(RecordBox.get().add("someField", 21.0).getRecord());
+        data.consume(RecordBox.get().addNull("someField").getRecord());
+
+        expected = RecordBox.get().add("fieldA", "foo").add("fieldB", "bar").add("sum", 42.0).getRecord();
+        Assert.assertEquals(data.getAsBulletRecord(), expected);
+    }
+
+    @Test
+    public void testGroupFieldsInDataNameClash() {
+        Map<String, String> fields = new HashMap<>();
+        fields.put("fieldA", "foo");
+        fields.put("fieldB", "bar");
+
+        GroupData data = make(fields, new GroupOperation(GroupOperationType.SUM, "someField", "fieldB"));
+
+        BulletRecord expected = RecordBox.get().add("fieldA", "foo").addNull("fieldB").getRecord();
+
+        Assert.assertEquals(data.getAsBulletRecord(), expected);
+
+        data.consume(RecordBox.get().add("someField", 21.0).getRecord());
+        data.consume(RecordBox.get().add("someField", 21.0).getRecord());
+
+        expected = RecordBox.get().add("fieldA", "foo").add("fieldB", 42.0).getRecord();
         Assert.assertEquals(data.getAsBulletRecord(), expected);
     }
 }

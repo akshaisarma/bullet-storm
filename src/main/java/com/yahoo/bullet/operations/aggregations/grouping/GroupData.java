@@ -10,7 +10,6 @@ import com.yahoo.bullet.operations.AggregationOperations.AggregationOperator;
 import com.yahoo.bullet.operations.AggregationOperations.GroupOperationType;
 import com.yahoo.bullet.operations.SerializerDeserializer;
 import com.yahoo.bullet.record.BulletRecord;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
@@ -35,6 +34,7 @@ public class GroupData implements Serializable {
 
     public static final String NAME_SEPARATOR = "_";
 
+
     private Map<String, String> groupFields;
     private Map<GroupOperation, Number> metrics = new HashMap<>();
 
@@ -43,7 +43,7 @@ public class GroupData implements Serializable {
      * Constructor that initializes the GroupData with a {@link Set} of {@link GroupOperation} and a {@link Map} of
      * Strings that represent the group fields
      *
-     * @param groupFields The fields to their new name mappings that represent this group.
+     * @param groupFields The name mappings to the values of the fields that represent this group.
      * @param operations the non-null operations that this will compute metrics for.
      */
     public GroupData(Map<String, String> groupFields, Set<GroupOperation> operations) {
@@ -108,6 +108,9 @@ public class GroupData implements Serializable {
      */
     public BulletRecord getAsBulletRecord() {
         BulletRecord record = new BulletRecord();
+        if (groupFields != null) {
+            groupFields.entrySet().stream().forEach(e -> record.setString(e.getKey(), e.getValue()));
+        }
         metrics.entrySet().stream().forEach(e -> addToRecord(e, record));
         return record;
     }
