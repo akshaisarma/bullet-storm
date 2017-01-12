@@ -14,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -41,9 +40,9 @@ public class GroupData implements Serializable {
 
     /**
      * Constructor that initializes the GroupData with a {@link Set} of {@link GroupOperation} and a {@link Map} of
-     * Strings that represent the group fields
+     * Strings that represent the group fields.
      *
-     * @param groupFields The name mappings to the values of the fields that represent this group.
+     * @param groupFields The mappings of field names to their values that represent this group.
      * @param operations the non-null operations that this will compute metrics for.
      */
     public GroupData(Map<String, String> groupFields, Set<GroupOperation> operations) {
