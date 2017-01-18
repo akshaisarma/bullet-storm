@@ -10,6 +10,7 @@ import com.yahoo.bullet.operations.AggregationOperations.AggregationOperator;
 import com.yahoo.bullet.operations.AggregationOperations.GroupOperationType;
 import com.yahoo.bullet.operations.SerializerDeserializer;
 import com.yahoo.bullet.record.BulletRecord;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
@@ -33,9 +34,29 @@ public class GroupData implements Serializable {
 
     public static final String NAME_SEPARATOR = "_";
 
-
+    @Setter
     protected Map<String, String> groupFields;
-    protected Map<GroupOperation, Number> metrics = new HashMap<>();
+    protected Map<GroupOperation, Number> metrics;
+
+    /**
+     * Creates a {@link Map} of {@link GroupOperation} to their numeric metric values from a {@link Set} of
+     * {@link GroupOperation}.
+     *
+     * @param operations A set of operations.
+     * @return A empty map of metrics that represent these operations.
+     */
+    public static Map<GroupOperation, Number> makeInitialMetrics(Set<GroupOperation> operations) {
+        Map<GroupOperation, Number> metrics = new HashMap<>();
+        // Initialize with nulls.
+        for (GroupOperation operation : operations) {
+            metrics.put(operation, null);
+            if (operation.getType() == AVG) {
+                // For AVG we store an addition COUNT_FIELD operation to store the count (the sum is stored in AVG)
+                metrics.put(new GroupOperation(COUNT_FIELD, operation.getField(), null), null);
+            }
+        }
+        return metrics;
+    }
 
     /**
      * Constructor that initializes the GroupData with a {@link Set} of {@link GroupOperation} and a {@link Map} of
@@ -46,14 +67,7 @@ public class GroupData implements Serializable {
      */
     public GroupData(Map<String, String> groupFields, Set<GroupOperation> operations) {
         this.groupFields = groupFields;
-        // Initialize with nulls.
-        for (GroupOperation operation : operations) {
-            metrics.put(operation, null);
-            if (operation.getType() == AVG) {
-                // For AVG we store an addition COUNT_FIELD operation to store the count (the sum is stored in AVG)
-                metrics.put(new GroupOperation(COUNT_FIELD, operation.getField(), null), null);
-            }
-        }
+        this.metrics = makeInitialMetrics(operations);
     }
 
     /**
@@ -63,6 +77,18 @@ public class GroupData implements Serializable {
      */
     public GroupData(Set<GroupOperation> operations) {
         this(null, operations);
+    }
+
+    /**
+     * Constructor that initializes the GroupData with an existing {@link Map} of {@link GroupOperation} to values and
+     * a {@link Map} of Strings that represent the group fields. These arguments are not copied.
+     *
+     * @param groupFields The mappings of field names to their values that represent this group.
+     * @param metrics the non-null {@link Map} of metrics for this object.
+     */
+    public GroupData(Map<String, String> groupFields, Map<GroupOperation, Number> metrics) {
+        this.groupFields = groupFields;
+        this.metrics = metrics;
     }
 
     /**

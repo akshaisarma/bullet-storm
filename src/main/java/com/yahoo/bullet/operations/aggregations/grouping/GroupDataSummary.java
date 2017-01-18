@@ -7,35 +7,39 @@ import com.yahoo.sketches.tuple.UpdatableSummary;
 import lombok.Getter;
 
 import java.nio.ByteBuffer;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
-public class GroupDataSummary implements UpdatableSummary<GroupData> {
+public class GroupDataSummary implements UpdatableSummary<CachingGroupData> {
     public static final int INITIALIZED_POSITION = 0;
     public static final int SIZE_POSITION = Byte.BYTES;
     public static final int DATA_POSITION = SIZE_POSITION + Integer.BYTES;
 
+
     private boolean initialized = false;
     @Getter
-    private GroupData data;
+    private CachingGroupData data;
 
     @Override
-    public void update(GroupData value) {
-        if (!initialized) {
-            data = value;
+    public void update(CachingGroupData value) {
+        if (initialized) {
+            data.consume(value.getCachedRecord());
             return;
         }
-        data.combine(value);
+        // Do not copy the group fields since they are read-only but copy the metrics. This only needs to happen once
+        // per summary initialization (i.e. once per group).
+        data = new CachingGroupData(value.groupFields, new HashMap<>(value.metrics));
+        initialized = true;
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public GroupDataSummary copy() {
+        // Both fields are expected to not be null
+        // TODO: See if a full copy is needed here.
         Map<String, String> copiedGroups = new HashMap<>(data.groupFields);
-        Set<GroupOperation> copiedOperations = data.metrics != null ? data.metrics.keySet() : Collections.emptySet();
-        GroupData copiedData = new GroupData(copiedGroups, copiedOperations);
+        Map<GroupOperation, Number> copiedMetrics = new HashMap<>(data.metrics);
+        CachingGroupData copiedData = new CachingGroupData(copiedGroups, copiedMetrics);
 
         GroupDataSummary copy = new GroupDataSummary();
         copy.initialized = initialized;
@@ -67,7 +71,7 @@ public class GroupDataSummary implements UpdatableSummary<GroupData> {
 
         byte[] data = new byte[size];
         serializedSummary.getByteArray(DATA_POSITION, data, 0, size);
-        GroupData deserializedData = SerializerDeserializer.fromBytes(data);
+        CachingGroupData deserializedData = SerializerDeserializer.fromBytes(data);
 
         GroupDataSummary deserialized = new GroupDataSummary();
         deserialized.initialized = initialized != 0;

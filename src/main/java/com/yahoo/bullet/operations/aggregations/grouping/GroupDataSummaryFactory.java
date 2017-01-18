@@ -17,7 +17,7 @@ public class GroupDataSummaryFactory implements SummaryFactory {
 
     @Override
     public SummarySetOperations getSummarySetOperations() {
-        return null;
+        return new GroupDataSummarySetOperations();
     }
 
     @Override

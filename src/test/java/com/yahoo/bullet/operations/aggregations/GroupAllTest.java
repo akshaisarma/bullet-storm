@@ -3,11 +3,11 @@
  *  Licensed under the terms of the Apache License, Version 2.0.
  *  See the LICENSE file associated with the project for terms.
  */
-package com.yahoo.bullet.operations.aggregations.grouping;
+package com.yahoo.bullet.operations.aggregations;
 
 import com.yahoo.bullet.operations.AggregationOperations.AggregationType;
 import com.yahoo.bullet.operations.AggregationOperations.GroupOperationType;
-import com.yahoo.bullet.operations.aggregations.GroupAll;
+import com.yahoo.bullet.operations.aggregations.grouping.GroupOperation;
 import com.yahoo.bullet.parsing.Aggregation;
 import com.yahoo.bullet.record.BulletRecord;
 import com.yahoo.bullet.result.RecordBox;
