@@ -83,7 +83,7 @@ public class Aggregation implements Configurable, Validatable {
                                                                     SUPPORTED_GROUP_OPERATIONS_RESOLUTION);
 
     public static final Integer DEFAULT_SIZE = 1;
-    public static final Integer DEFAULT_MAX_SIZE = 30;
+    public static final Integer DEFAULT_MAX_SIZE = 512;
 
     public static final String DEFAULT_FIELD_SEPARATOR = "|";
 

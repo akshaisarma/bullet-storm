@@ -81,7 +81,7 @@ public abstract class Config implements Serializable {
         Set<String> inclusions = keys.orElse(data.keySet());
         return this.data.entrySet().stream()
                         .filter(e -> inclusions.contains(e.getKey()))
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                        .collect(HashMap::new, (m, e) -> m.put(e.getKey(), e.getValue()), HashMap::putAll);
     }
 
     /**
@@ -95,7 +95,7 @@ public abstract class Config implements Serializable {
         Set<String> exclusions = keys.orElse(new HashSet<>());
         return this.data.entrySet().stream()
                         .filter(e -> !exclusions.contains(e.getKey()))
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                        .collect(HashMap::new, (m, e) -> m.put(e.getKey(), e.getValue()), HashMap::putAll);
     }
 
     /**
