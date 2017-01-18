@@ -34,9 +34,8 @@ public class GroupData implements Serializable {
     public static final String NAME_SEPARATOR = "_";
 
 
-    private Map<String, String> groupFields;
-    private Map<GroupOperation, Number> metrics = new HashMap<>();
-
+    protected Map<String, String> groupFields;
+    protected Map<GroupOperation, Number> metrics = new HashMap<>();
 
     /**
      * Constructor that initializes the GroupData with a {@link Set} of {@link GroupOperation} and a {@link Map} of
