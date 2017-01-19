@@ -125,7 +125,7 @@ public class GroupData implements Serializable {
         metrics.entrySet().stream().forEach(e -> combine(e, otherData));
     }
 
-    /*
+    /**
      * Gets the data stored for the group as a {@link BulletRecord}.
      *
      * @return A non-null {@link BulletRecord} containing the data stored in this object.
@@ -136,7 +136,7 @@ public class GroupData implements Serializable {
         return record;
     }
 
-    /*
+    /**
      * Gets the data stored for the group as a {@link BulletRecord}.
      *
      * @param mapping A non-null new name mapping for the names of the group fields.
@@ -245,8 +245,8 @@ public class GroupData implements Serializable {
         }
         return type.getName() + NAME_SEPARATOR + operation.getField();
     }
-    /*
 
+    /*
      * This function accepts an AggregationOperator and applies it to the new and current value for the given
      * GroupOperation and updates metrics accordingly.
      */

@@ -1,6 +1,7 @@
 package com.yahoo.bullet.operations.aggregations;
 
 import com.yahoo.bullet.BulletConfig;
+import com.yahoo.bullet.operations.aggregations.sketches.ThetaKMVSketch;
 import com.yahoo.bullet.parsing.Aggregation;
 import com.yahoo.bullet.parsing.Specification;
 import com.yahoo.bullet.record.BulletRecord;
@@ -17,51 +18,27 @@ import com.yahoo.sketches.theta.Sketches;
 import com.yahoo.sketches.theta.Union;
 import com.yahoo.sketches.theta.UpdateSketch;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-public class CountDistinct implements Strategy {
+public class CountDistinct extends KMVStrategy {
     private UpdateSketch updateSketch;
     private Union unionSketch;
-    private List<String> fields;
     private String newName;
-
-    private boolean consumed = false;
-    private boolean combined = false;
 
     public static final String NEW_NAME_KEY = "newName";
     public static final String DEFAULT_NEW_NAME = "COUNT DISTINCT";
 
-    // Separator for multiple fields when inserting into the Sketch
-    private String separator;
 
     // Sketch defaults
-    // No sampling
-    public static final float DEFAULT_SAMPLING_PROBABILITY = 1.0f;
-
     // Recommended for real-time systems
     public static final String DEFAULT_UPDATE_SKETCH_FAMILY = Family.ALPHA.getFamilyName();
-
-    // Sketch * 8 its size upto 2 * nominal entries everytime it reaches cap
-    public static final int DEFAULT_RESIZE_FACTOR = ResizeFactor.X8.lg();
 
     // This gives us (Alpha sketches fall back to QuickSelect RSEs after compaction or set operations) a 2.34% error
     // rate at 99.73% confidence (3 Standard Deviations).
     public static final int DEFAULT_NOMINAL_ENTRIES = 16384;
-
-    private Map<String, String> metadataKeys;
-
-    public static final String META_STD_DEV_1 = "1";
-    public static final String META_STD_DEV_2 = "2";
-    public static final String META_STD_DEV_3 = "3";
-    public static final String META_STD_DEV_UB = "upperBound";
-    public static final String META_STD_DEV_LB = "lowerBound";
 
     /**
      * Constructor that requires an {@link Aggregation}.
@@ -70,17 +47,12 @@ public class CountDistinct implements Strategy {
      */
     @SuppressWarnings("unchecked")
     public CountDistinct(Aggregation aggregation) {
+        super(aggregation);
         Map config = aggregation.getConfiguration();
         Map<String, Object> attributes = aggregation.getAttributes();
 
-        fields = new ArrayList<>(aggregation.getFields().keySet());
         newName = attributes == null ? DEFAULT_NEW_NAME :
                                        attributes.getOrDefault(NEW_NAME_KEY, DEFAULT_NEW_NAME).toString();
-        metadataKeys = (Map<String, String>) config.getOrDefault(BulletConfig.RESULT_METADATA_METRICS_MAPPING,
-                                                                 Collections.emptyMap());
-
-        separator = config.getOrDefault(BulletConfig.AGGREGATION_COMPOSITE_FIELD_SEPARATOR,
-                                        Aggregation.DEFAULT_FIELD_SEPARATOR).toString();
 
         float samplingProbability = ((Number) config.getOrDefault(BulletConfig.COUNT_DISTINCT_AGGREGATION_SKETCH_SAMPLING,
                                                                   DEFAULT_SAMPLING_PROBABILITY)).floatValue();
@@ -130,14 +102,11 @@ public class CountDistinct implements Strategy {
         BulletRecord record = new BulletRecord();
         record.setDouble(newName, count);
 
-        String aggregationMetaKey = metadataKeys.getOrDefault(Concept.AGGREGATION_METADATA.getName(), null);
+        String aggregationMetaKey = getAggregationMetaKey();
         if (aggregationMetaKey == null) {
             return Clip.of(record);
         }
-
-        Map<String, Object> sketchMetadata = getSketchMetadata(result, metadataKeys);
-        Metadata meta = new Metadata().add(aggregationMetaKey, sketchMetadata);
-        return Clip.of(meta).add(record);
+        return Clip.of(new Metadata().add(aggregationMetaKey, getSketchMetadata(result, metadataKeys))).add(record);
     }
 
     private CompactSketch merge() {
@@ -161,44 +130,16 @@ public class CountDistinct implements Strategy {
     }
 
     private Map<String, Object> getSketchMetadata(Sketch sketch, Map<String, String> conceptKeys) {
-        Map<String, Object> metadata = new HashMap<>();
+        ThetaKMVSketch wrapped = new ThetaKMVSketch(sketch);
+        Map<String, Object> metadata = super.getSketchMetadata(wrapped, conceptKeys);
 
-        String standardDeviationsKey = conceptKeys.get(Concept.STANDARD_DEVIATIONS.getName());
-        String isEstimatedKey = conceptKeys.get(Concept.ESTIMATED_RESULT.getName());
-        String thetaKey = conceptKeys.get(Concept.SKETCH_THETA.getName());
         String familyKey = conceptKeys.get(Concept.SKETCH_FAMILY.getName());
         String sizeKey = conceptKeys.get(Concept.SKETCH_SIZE.getName());
 
-        addIfKeyNonNull(metadata, standardDeviationsKey, () -> getStandardDeviations(sketch));
-        addIfKeyNonNull(metadata, isEstimatedKey, sketch::isEstimationMode);
-        addIfKeyNonNull(metadata, thetaKey, sketch::getTheta);
         addIfKeyNonNull(metadata, familyKey, () -> sketch.getFamily().getFamilyName());
         addIfKeyNonNull(metadata, sizeKey, () -> sketch.getCurrentBytes(true));
 
         return metadata;
-    }
-
-    private Map<String, Map<String, Double>> getStandardDeviations(Sketch sketch) {
-        Map<String, Map<String, Double>> standardDeviations = new HashMap<>();
-        standardDeviations.put(META_STD_DEV_1, getStandardDeviation(sketch, 1));
-        standardDeviations.put(META_STD_DEV_2, getStandardDeviation(sketch, 2));
-        standardDeviations.put(META_STD_DEV_3, getStandardDeviation(sketch, 3));
-        return standardDeviations;
-    }
-
-    private Map<String, Double> getStandardDeviation(Sketch sketch, int standardDeviation) {
-        double lowerBound = sketch.getLowerBound(standardDeviation);
-        double upperBound = sketch.getUpperBound(standardDeviation);
-        Map<String, Double> bounds = new HashMap<>();
-        bounds.put(META_STD_DEV_LB, lowerBound);
-        bounds.put(META_STD_DEV_UB, upperBound);
-        return bounds;
-    }
-
-    private static void addIfKeyNonNull(Map<String, Object> metadata, String key, Supplier<Object> supplier) {
-        if (key != null) {
-            metadata.put(key, supplier.get());
-        }
     }
 
     /**
@@ -209,25 +150,5 @@ public class CountDistinct implements Strategy {
      */
     static Family getFamily(String family) {
         return Family.QUICKSELECT.getFamilyName().equals(family) ? Family.QUICKSELECT : Family.ALPHA;
-    }
-
-    /**
-     * Converts a integer representing the resizing for Sketches into a {@link ResizeFactor}.
-     *
-     * @param factor An int representing the scaling when the Sketch reaches its threshold. Supports 1, 2, 4 and 8.
-     * @return A {@link ResizeFactor} represented by the integer or {@link ResizeFactor#X8} otherwise.
-     */
-    static ResizeFactor getResizeFactor(Number factor) {
-        int resizeFactor = factor.intValue();
-        switch (resizeFactor) {
-            case 1:
-                return ResizeFactor.X1;
-            case 2:
-                return ResizeFactor.X2;
-            case 4:
-                return ResizeFactor.X4;
-            default:
-                return ResizeFactor.X8;
-        }
     }
 }

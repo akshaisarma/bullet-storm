@@ -23,7 +23,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.yahoo.bullet.TestHelpers.getListBytes;
-import static java.util.Collections.singletonMap;
 import static java.util.stream.Collectors.toList;
 
 public class RawTest {

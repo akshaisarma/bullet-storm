@@ -6,6 +6,7 @@ import com.yahoo.bullet.operations.aggregations.grouping.GroupData;
 import com.yahoo.bullet.operations.aggregations.grouping.GroupDataSummary;
 import com.yahoo.bullet.operations.aggregations.grouping.GroupDataSummaryFactory;
 import com.yahoo.bullet.operations.aggregations.grouping.GroupOperation;
+import com.yahoo.bullet.operations.aggregations.sketches.TupleKMVSketch;
 import com.yahoo.bullet.parsing.Aggregation;
 import com.yahoo.bullet.parsing.Specification;
 import com.yahoo.bullet.record.BulletRecord;
@@ -22,13 +23,10 @@ import com.yahoo.sketches.tuple.Union;
 import com.yahoo.sketches.tuple.UpdatableSketch;
 import com.yahoo.sketches.tuple.UpdatableSketchBuilder;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -37,35 +35,19 @@ import java.util.stream.Collectors;
  * sum and count when summed across the uniform sample and divided the sketch theta gives an approximate estimate
  * of the total sum and count across all the groups.
  */
-public class GroupBy implements Strategy {
-    private CachingGroupData container;
+public class GroupBy extends KMVStrategy {
     private int size;
-    private UpdatableSketch<CachingGroupData, GroupDataSummary> updateSketch;
-    private Union<GroupDataSummary> unionSketch;
-    private List<String> groups;
     private Map<String, String> fieldMapping;
 
-    private boolean consumed = false;
-    private boolean combined = false;
+    // This is reused for the duration of the strategy.
+    private CachingGroupData container;
 
-    private Map<String, String> metadataKeys;
-    // Separator for multiple fields when inserting into the Sketch
-    private String separator;
-
-    public static final float DEFAULT_SAMPLING_PROBABILITY = 1.0f;
-
-    // Sketch * 8 its size upto 2 * nominal entries everytime it reaches cap
-    public static final int DEFAULT_RESIZE_FACTOR = ResizeFactor.X8.lg();
+    private UpdatableSketch<CachingGroupData, GroupDataSummary> updateSketch;
+    private Union<GroupDataSummary> unionSketch;
 
     // This gives us a 13.27% error rate at 99.73% confidence (3 Standard Deviations). But we are only using this to cap
     // the distinct groups
     public static final int DEFAULT_NOMINAL_ENTRIES = 512;
-
-    public static final String META_STD_DEV_1 = "1";
-    public static final String META_STD_DEV_2 = "2";
-    public static final String META_STD_DEV_3 = "3";
-    public static final String META_STD_DEV_UB = "upperBound";
-    public static final String META_STD_DEV_LB = "lowerBound";
 
     /**
      * Constructor that requires an {@link Aggregation}.
@@ -74,15 +56,12 @@ public class GroupBy implements Strategy {
      */
     @SuppressWarnings("unchecked")
     public GroupBy(Aggregation aggregation) {
-        Map config = aggregation.getConfiguration();
-        metadataKeys = (Map<String, String>) config.getOrDefault(BulletConfig.RESULT_METADATA_METRICS_MAPPING,
-                                                                 Collections.emptyMap());
+        super(aggregation);
 
-        separator = config.getOrDefault(BulletConfig.AGGREGATION_COMPOSITE_FIELD_SEPARATOR,
-                                        Aggregation.DEFAULT_FIELD_SEPARATOR).toString();
+        Map config = aggregation.getConfiguration();
 
         Map<GroupOperation, Number> metrics = GroupData.makeInitialMetrics(aggregation.getGroupOperations());
-        groups = new ArrayList<>(aggregation.getFields().keySet());
+
         fieldMapping = aggregation.getFields();
 
         container = new CachingGroupData(null, metrics);
@@ -108,12 +87,12 @@ public class GroupBy implements Strategy {
 
     @Override
     public void consume(BulletRecord data) {
-        Map<String, String> groupValues = getGroups(data);
-        String key = getFieldsAsString(groups, groupValues, separator);
+        Map<String, String> fieldMapping = getGroups(data);
+        String key = getFieldsAsString(fields, fieldMapping, separator);
 
         // Set the record and the group values into the container. The metrics are already initialized.
         container.setCachedRecord(data);
-        container.setGroupFields(groupValues);
+        container.setGroupFields(fieldMapping);
         updateSketch.update(key, container);
         consumed = true;
     }
@@ -127,13 +106,13 @@ public class GroupBy implements Strategy {
 
     @Override
     public byte[] getSerializedAggregation() {
-        CompactSketch<GroupDataSummary> compactSketch = merge();
+        Sketch<GroupDataSummary> compactSketch = merge();
         return compactSketch.toByteArray();
     }
 
     @Override
     public Clip getAggregation() {
-        CompactSketch<GroupDataSummary> result = merge();
+        Sketch<GroupDataSummary> result = merge();
         Clip clip = new Clip();
 
         SketchIterator<GroupDataSummary> iterator = result.iterator();
@@ -142,14 +121,12 @@ public class GroupBy implements Strategy {
             clip.add(data.getAsBulletRecord(fieldMapping));
         }
 
-        String aggregationMetaKey = metadataKeys.getOrDefault(Concept.AGGREGATION_METADATA.getName(), null);
+        String aggregationMetaKey = getAggregationMetaKey();
         if (aggregationMetaKey == null) {
             return clip;
         }
 
-        Map<String, Object> sketchMetadata = getSketchMetadata(result, metadataKeys);
-        Metadata meta = new Metadata().add(aggregationMetaKey, sketchMetadata);
-        return clip.add(meta);
+        return clip.add(new Metadata().add(aggregationMetaKey, getSketchMetadata(result, metadataKeys)));
     }
 
     private CompactSketch<GroupDataSummary> merge() {
@@ -171,7 +148,7 @@ public class GroupBy implements Strategy {
 
     private Map<String, String> getGroups(BulletRecord record) {
         Map<String, String> groupMapping = new HashMap<>();
-        for (String key : groups) {
+        for (String key : fields) {
             // This explicitly does not do a TypedObject checking. Nulls turn into Strings
             String value = Objects.toString(Specification.extractField(key, record));
             groupMapping.put(key, value);
@@ -179,62 +156,13 @@ public class GroupBy implements Strategy {
         return groupMapping;
     }
 
-    private Map<String, Object> getSketchMetadata(Sketch sketch, Map<String, String> conceptKeys) {
-        Map<String, Object> metadata = new HashMap<>();
+    private Map<String, Object> getSketchMetadata(Sketch<GroupDataSummary> sketch, Map<String, String> conceptKeys) {
+        TupleKMVSketch wrapped = new TupleKMVSketch(sketch);
+        Map<String, Object> metadata = super.getSketchMetadata(wrapped, conceptKeys);
 
-        String standardDeviationsKey = conceptKeys.get(Concept.STANDARD_DEVIATIONS.getName());
-        String isEstimatedKey = conceptKeys.get(Concept.ESTIMATED_RESULT.getName());
-        String thetaKey = conceptKeys.get(Concept.SKETCH_THETA.getName());
         String uniquesEstimate = conceptKeys.get(Concept.UNIQUES_ESTIMATE.getName());
-
-        addIfKeyNonNull(metadata, standardDeviationsKey, () -> getStandardDeviations(sketch));
-        addIfKeyNonNull(metadata, isEstimatedKey, sketch::isEstimationMode);
-        addIfKeyNonNull(metadata, thetaKey, sketch::getTheta);
         addIfKeyNonNull(metadata, uniquesEstimate, sketch::getEstimate);
 
         return metadata;
-    }
-
-    private Map<String, Map<String, Double>> getStandardDeviations(Sketch sketch) {
-        Map<String, Map<String, Double>> standardDeviations = new HashMap<>();
-        standardDeviations.put(META_STD_DEV_1, getStandardDeviation(sketch, 1));
-        standardDeviations.put(META_STD_DEV_2, getStandardDeviation(sketch, 2));
-        standardDeviations.put(META_STD_DEV_3, getStandardDeviation(sketch, 3));
-        return standardDeviations;
-    }
-
-    private Map<String, Double> getStandardDeviation(Sketch sketch, int standardDeviation) {
-        double lowerBound = sketch.getLowerBound(standardDeviation);
-        double upperBound = sketch.getUpperBound(standardDeviation);
-        Map<String, Double> bounds = new HashMap<>();
-        bounds.put(META_STD_DEV_LB, lowerBound);
-        bounds.put(META_STD_DEV_UB, upperBound);
-        return bounds;
-    }
-
-    private static void addIfKeyNonNull(Map<String, Object> metadata, String key, Supplier<Object> supplier) {
-        if (key != null) {
-            metadata.put(key, supplier.get());
-        }
-    }
-
-    /**
-     * Converts a integer representing the resizing for Sketches into a {@link ResizeFactor}.
-     *
-     * @param factor An int representing the scaling when the Sketch reaches its threshold. Supports 1, 2, 4 and 8.
-     * @return A {@link ResizeFactor} represented by the integer or {@link ResizeFactor#X8} otherwise.
-     */
-    static ResizeFactor getResizeFactor(Number factor) {
-        int resizeFactor = factor.intValue();
-        switch (resizeFactor) {
-            case 1:
-                return ResizeFactor.X1;
-            case 2:
-                return ResizeFactor.X2;
-            case 4:
-                return ResizeFactor.X4;
-            default:
-                return ResizeFactor.X8;
-        }
     }
 }
