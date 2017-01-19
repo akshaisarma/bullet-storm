@@ -8,7 +8,6 @@ import lombok.Getter;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
-import java.util.Map;
 
 public class GroupDataSummary implements UpdatableSummary<CachingGroupData> {
     public static final int INITIALIZED_POSITION = 0;
@@ -26,20 +25,17 @@ public class GroupDataSummary implements UpdatableSummary<CachingGroupData> {
             data.consume(value.getCachedRecord());
             return;
         }
-        // Do not copy the group fields since they are read-only but copy the metrics. This only needs to happen once
-        // per summary initialization (i.e. once per group).
-        data = new CachingGroupData(value.groupFields, new HashMap<>(value.metrics));
+        // This only needs to happen once per summary initialization (i.e. once per group).
+        data = new CachingGroupData(new HashMap<>(value.groupFields), new HashMap<>(value.metrics));
         initialized = true;
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public GroupDataSummary copy() {
-        // Both fields are expected to not be null
+        // Both groupFields and metrics are expected to not be null
         // TODO: See if a full copy is needed here.
-        Map<String, String> copiedGroups = new HashMap<>(data.groupFields);
-        Map<GroupOperation, Number> copiedMetrics = new HashMap<>(data.metrics);
-        CachingGroupData copiedData = new CachingGroupData(copiedGroups, copiedMetrics);
+        CachingGroupData copiedData = new CachingGroupData(new HashMap<>(data.groupFields), new HashMap<>(data.metrics));
 
         GroupDataSummary copy = new GroupDataSummary();
         copy.initialized = initialized;

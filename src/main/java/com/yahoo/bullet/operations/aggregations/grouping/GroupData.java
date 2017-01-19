@@ -125,17 +125,30 @@ public class GroupData implements Serializable {
         metrics.entrySet().stream().forEach(e -> combine(e, otherData));
     }
 
-    /**
+    /*
      * Gets the data stored for the group as a {@link BulletRecord}.
      *
      * @return A non-null {@link BulletRecord} containing the data stored in this object.
      */
     public BulletRecord getAsBulletRecord() {
         BulletRecord record = new BulletRecord();
-        if (groupFields != null) {
-            groupFields.entrySet().stream().forEach(e -> record.setString(e.getKey(), e.getValue()));
-        }
         metrics.entrySet().stream().forEach(e -> addToRecord(e, record));
+        return record;
+    }
+
+    /*
+     * Gets the data stored for the group as a {@link BulletRecord}.
+     *
+     * @param mapping A non-null new name mapping for the names of the group fields.
+     * @return A non-null {@link BulletRecord} containing the data stored in this object.
+     */
+    public BulletRecord getAsBulletRecord(Map<String, String> mapping) {
+        BulletRecord record = getAsBulletRecord();
+        for (Map.Entry<String, String> e : groupFields.entrySet()) {
+            String field = e.getKey();
+            String mapped = mapping.get(field);
+            record.setString(mapped == null ? field : mapped, e.getValue());
+        }
         return record;
     }
 

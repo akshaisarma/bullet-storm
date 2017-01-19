@@ -14,6 +14,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -487,17 +488,23 @@ public class GroupDataTest {
 
         GroupData data = make(fields, new GroupOperation(GroupOperationType.SUM, "someField", "sum"));
 
-        BulletRecord expected = RecordBox.get().add("fieldA", "foo").add("fieldB", "bar").addNull("sum").getRecord();
+        BulletRecord expectedUnmapped = RecordBox.get().addNull("sum").getRecord();
 
-        Assert.assertTrue(data.getAsBulletRecord().equals(expected));
-        Assert.assertEquals(data.getAsBulletRecord(), expected);
+        Map<String, String> fieldMapping = new HashMap<>();
+        fieldMapping.put("fieldA", "newFieldNameA");
+        fieldMapping.put("fieldB", "fieldB");
+        BulletRecord expected = RecordBox.get().add("newFieldNameA", "foo").add("fieldB", "bar").addNull("sum").getRecord();
+
+
+        Assert.assertTrue(data.getAsBulletRecord().equals(expectedUnmapped));
+        Assert.assertTrue(data.getAsBulletRecord(fieldMapping).equals(expected));
 
         data.consume(RecordBox.get().add("someField", 21.0).getRecord());
         data.consume(RecordBox.get().add("someField", 21.0).getRecord());
         data.consume(RecordBox.get().addNull("someField").getRecord());
 
-        expected = RecordBox.get().add("fieldA", "foo").add("fieldB", "bar").add("sum", 42.0).getRecord();
-        Assert.assertEquals(data.getAsBulletRecord(), expected);
+        expected = RecordBox.get().add("foo", "foo").add("bar", "bar").add("sum", 42.0).getRecord();
+        Assert.assertTrue(data.getAsBulletRecord(fields).equals(expected));
     }
 
     @Test
@@ -508,14 +515,14 @@ public class GroupDataTest {
 
         GroupData data = make(fields, new GroupOperation(GroupOperationType.SUM, "someField", "fieldB"));
 
-        BulletRecord expected = RecordBox.get().add("fieldA", "foo").addNull("fieldB").getRecord();
+        BulletRecord expected = RecordBox.get().add("fieldA", "foo").add("fieldB", "bar").getRecord();
 
-        Assert.assertEquals(data.getAsBulletRecord(), expected);
+        Assert.assertTrue(data.getAsBulletRecord(Collections.emptyMap()).equals(expected));
 
         data.consume(RecordBox.get().add("someField", 21.0).getRecord());
         data.consume(RecordBox.get().add("someField", 21.0).getRecord());
 
-        expected = RecordBox.get().add("fieldA", "foo").add("fieldB", 42.0).getRecord();
-        Assert.assertEquals(data.getAsBulletRecord(), expected);
+        expected = RecordBox.get().add("fieldB", 42.0).getRecord();
+        Assert.assertTrue(data.getAsBulletRecord().equals(expected));
     }
 }
