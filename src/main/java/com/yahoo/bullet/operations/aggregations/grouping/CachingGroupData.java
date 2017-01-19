@@ -4,6 +4,7 @@ import com.yahoo.bullet.record.BulletRecord;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -25,5 +26,22 @@ public class CachingGroupData extends GroupData {
      */
     public CachingGroupData(Map<String, String> groupFields, Map<GroupOperation, Number> metrics) {
         super(groupFields, metrics);
+    }
+
+    /**
+     * Creates an copy of the groups and metrics.
+     *
+     * @return A copied {@link CachingGroupData}.
+     */
+    public CachingGroupData copy() {
+        return new CachingGroupData(copy(groupFields), copy(metrics));
+    }
+
+    private <K, V> Map<K, V> copy(Map<K, V> map) {
+        Map<K, V> copy = new HashMap<>(map.size());
+        for (Map.Entry<K, V> e : map.entrySet()) {
+            copy.put(e.getKey(), e.getValue());
+        }
+        return copy;
     }
 }

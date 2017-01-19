@@ -26,7 +26,7 @@ public class GroupDataSummary implements UpdatableSummary<CachingGroupData> {
             return;
         }
         // This only needs to happen once per summary initialization (i.e. once per group).
-        data = new CachingGroupData(new HashMap<>(value.groupFields), new HashMap<>(value.metrics));
+        data = value.copy();
         initialized = true;
     }
 

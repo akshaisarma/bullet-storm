@@ -48,21 +48,15 @@ public class CountDistinct extends KMVStrategy {
     @SuppressWarnings("unchecked")
     public CountDistinct(Aggregation aggregation) {
         super(aggregation);
-        Map config = aggregation.getConfiguration();
         Map<String, Object> attributes = aggregation.getAttributes();
 
-        newName = attributes == null ? DEFAULT_NEW_NAME :
-                                       attributes.getOrDefault(NEW_NAME_KEY, DEFAULT_NEW_NAME).toString();
+        newName = attributes == null ? DEFAULT_NEW_NAME : attributes.getOrDefault(NEW_NAME_KEY, DEFAULT_NEW_NAME).toString();
 
+        ResizeFactor resizeFactor = getResizeFactor(BulletConfig.COUNT_DISTINCT_AGGREGATION_SKETCH_RESIZE_FACTOR);
         float samplingProbability = ((Number) config.getOrDefault(BulletConfig.COUNT_DISTINCT_AGGREGATION_SKETCH_SAMPLING,
                                                                   DEFAULT_SAMPLING_PROBABILITY)).floatValue();
-
         Family family = getFamily(config.getOrDefault(BulletConfig.COUNT_DISTINCT_AGGREGATION_SKETCH_FAMILY,
                                                       DEFAULT_UPDATE_SKETCH_FAMILY).toString());
-
-        ResizeFactor resizeFactor = getResizeFactor((Number) config.getOrDefault(BulletConfig.COUNT_DISTINCT_AGGREGATION_SKETCH_RESIZE_FACTOR,
-                                                                                 DEFAULT_RESIZE_FACTOR));
-
         int nominalEntries = ((Number) config.getOrDefault(BulletConfig.COUNT_DISTINCT_AGGREGATION_SKETCH_ENTRIES,
                                                            DEFAULT_NOMINAL_ENTRIES)).intValue();
 
@@ -101,12 +95,10 @@ public class CountDistinct extends KMVStrategy {
 
         BulletRecord record = new BulletRecord();
         record.setDouble(newName, count);
+        Clip clip = Clip.of(record);
 
-        String aggregationMetaKey = getAggregationMetaKey();
-        if (aggregationMetaKey == null) {
-            return Clip.of(record);
-        }
-        return Clip.of(new Metadata().add(aggregationMetaKey, getSketchMetadata(result, metadataKeys))).add(record);
+        String metaKey = getAggregationMetaKey();
+        return metaKey == null ? clip : clip.add(new Metadata().add(metaKey, getSketchMetadata(result, metadataKeys)));
     }
 
     private CompactSketch merge() {

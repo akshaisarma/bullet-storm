@@ -35,6 +35,8 @@ public abstract class KMVStrategy implements Strategy {
 
     protected List<String> fields;
 
+    protected Map config;
+
     protected boolean consumed = false;
     protected boolean combined = false;
 
@@ -45,7 +47,7 @@ public abstract class KMVStrategy implements Strategy {
      */
     @SuppressWarnings("unchecked")
     public KMVStrategy(Aggregation aggregation) {
-        Map config = aggregation.getConfiguration();
+        config = aggregation.getConfiguration();
         metadataKeys = (Map<String, String>) config.getOrDefault(BulletConfig.RESULT_METADATA_METRICS_MAPPING,
                                                                  Collections.emptyMap());
         separator = config.getOrDefault(BulletConfig.AGGREGATION_COMPOSITE_FIELD_SEPARATOR,
@@ -87,8 +89,7 @@ public abstract class KMVStrategy implements Strategy {
      * @return A String key to use for storing the aggregation metadata or null if it was not enabled.
      */
     public String getAggregationMetaKey() {
-        String aggregationMetaKey = metadataKeys.getOrDefault(Concept.AGGREGATION_METADATA.getName(), null);
-        return aggregationMetaKey;
+        return metadataKeys.getOrDefault(Concept.AGGREGATION_METADATA.getName(), null);
     }
 
     /**
@@ -128,6 +129,16 @@ public abstract class KMVStrategy implements Strategy {
         return bounds;
     }
 
+    /**
+     * Converts a integer representing the resizing for Sketches into a {@link ResizeFactor}.
+     *
+     * @param key The key to get the configured resize factor from the configuration.
+     * @return A {@link ResizeFactor} represented by the integer or {@link ResizeFactor#X8} otherwise.
+     */
+    @SuppressWarnings("unchecked")
+    public ResizeFactor getResizeFactor(String key) {
+        return getResizeFactor((Number) config.getOrDefault(key, DEFAULT_RESIZE_FACTOR));
+    }
     /**
      * Converts a integer representing the resizing for Sketches into a {@link ResizeFactor}.
      *

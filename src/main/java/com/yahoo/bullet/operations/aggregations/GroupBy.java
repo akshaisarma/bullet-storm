@@ -45,8 +45,7 @@ public class GroupBy extends KMVStrategy {
     private UpdatableSketch<CachingGroupData, GroupDataSummary> updateSketch;
     private Union<GroupDataSummary> unionSketch;
 
-    // This gives us a 13.27% error rate at 99.73% confidence (3 Standard Deviations). But we are only using this to cap
-    // the distinct groups
+    // 13.27% error rate at 99.73% confidence (3 SD). Irrelevant since we are using this to cap the number of groups.
     public static final int DEFAULT_NOMINAL_ENTRIES = 512;
 
     /**
@@ -58,30 +57,21 @@ public class GroupBy extends KMVStrategy {
     public GroupBy(Aggregation aggregation) {
         super(aggregation);
 
-        Map config = aggregation.getConfiguration();
-
-        Map<GroupOperation, Number> metrics = GroupData.makeInitialMetrics(aggregation.getGroupOperations());
-
+        size = aggregation.getSize();
         fieldMapping = aggregation.getFields();
-
+        Map<GroupOperation, Number> metrics = GroupData.makeInitialMetrics(aggregation.getGroupOperations());
         container = new CachingGroupData(null, metrics);
 
+        ResizeFactor resizeFactor = getResizeFactor(BulletConfig.GROUP_AGGREGATION_SKETCH_RESIZE_FACTOR);
         float samplingProbability = ((Number) config.getOrDefault(BulletConfig.GROUP_AGGREGATION_SKETCH_SAMPLING,
                                                                   DEFAULT_SAMPLING_PROBABILITY)).floatValue();
-
-        ResizeFactor resizeFactor = getResizeFactor((Number) config.getOrDefault(BulletConfig.GROUP_AGGREGATION_SKETCH_RESIZE_FACTOR,
-                                                                                 DEFAULT_RESIZE_FACTOR));
-
         int nominalEntries = ((Number) config.getOrDefault(BulletConfig.GROUP_AGGREGATION_SKETCH_ENTRIES,
                                                            DEFAULT_NOMINAL_ENTRIES)).intValue();
 
         GroupDataSummaryFactory factory = new GroupDataSummaryFactory();
         UpdatableSketchBuilder<CachingGroupData, GroupDataSummary> builder = new UpdatableSketchBuilder(factory);
-        updateSketch = builder.setResizeFactor(resizeFactor)
-                              .setNominalEntries(nominalEntries)
-                              .setSamplingProbability(samplingProbability)
-                              .build();
-
+        updateSketch = builder.setResizeFactor(resizeFactor).setNominalEntries(nominalEntries)
+                              .setSamplingProbability(samplingProbability).build();
         unionSketch = new Union<>(nominalEntries, factory);
     }
 
@@ -116,17 +106,14 @@ public class GroupBy extends KMVStrategy {
         Clip clip = new Clip();
 
         SketchIterator<GroupDataSummary> iterator = result.iterator();
-        while (iterator.next()) {
+        for (int count = 0; iterator.next() && count < size; count++) {
             GroupData data = iterator.getSummary().getData();
+            // Add the record with the remapped group names to new names.
             clip.add(data.getAsBulletRecord(fieldMapping));
         }
 
-        String aggregationMetaKey = getAggregationMetaKey();
-        if (aggregationMetaKey == null) {
-            return clip;
-        }
-
-        return clip.add(new Metadata().add(aggregationMetaKey, getSketchMetadata(result, metadataKeys)));
+        String metaKey = getAggregationMetaKey();
+        return metaKey == null ? clip : clip.add(new Metadata().add(metaKey, getSketchMetadata(result, metadataKeys)));
     }
 
     private CompactSketch<GroupDataSummary> merge() {
