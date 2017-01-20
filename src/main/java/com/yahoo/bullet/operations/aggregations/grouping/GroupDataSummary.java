@@ -14,7 +14,7 @@ public class GroupDataSummary implements UpdatableSummary<CachingGroupData> {
     public static final int SIZE_POSITION = Byte.BYTES;
     public static final int DATA_POSITION = SIZE_POSITION + Integer.BYTES;
 
-
+    @Getter(AccessLevel.PACKAGE)
     private boolean initialized = false;
 
     @Getter @Setter(AccessLevel.PACKAGE)
@@ -31,12 +31,12 @@ public class GroupDataSummary implements UpdatableSummary<CachingGroupData> {
     }
 
     /**
-     * This method merges two {@link GroupDataSummary} into each other. It picks a non-null parameter to merge into
-     * and returns that.
+     * This method merges two {@link GroupDataSummary} into each other. It picks the first non-null parameter to
+     * merge into and returns that after merge.
      *
      * @param a The first {@link GroupDataSummary} to merge.
      * @param b The second {@link GroupDataSummary} to merge.
-     * @return One of the resulting merged summaries or null if both arguments were null.
+     * @return The resulting merged summary or null if both arguments were null.
      */
     public static GroupDataSummary mergeInPlace(GroupDataSummary a, GroupDataSummary b) {
         if (a != null) {
