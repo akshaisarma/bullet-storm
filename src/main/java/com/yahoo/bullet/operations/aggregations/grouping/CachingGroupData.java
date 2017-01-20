@@ -37,7 +37,20 @@ public class CachingGroupData extends GroupData {
         return new CachingGroupData(copy(groupFields), copy(metrics));
     }
 
-    private <K, V> Map<K, V> copy(Map<K, V> map) {
+    /**
+     * Creates a copy of another {@link GroupData}.
+     *
+     * @param other The other GroupData to copy. If not-null, must have groups and metrics.
+     * @return A {@link CachingGroupData} copy of the GroupData or null if it was null.
+     */
+    public static CachingGroupData copy(GroupData other) {
+        return other != null ? new CachingGroupData(copy(other.groupFields), copy(other.metrics)) : null;
+    }
+
+    private static <K, V> Map<K, V> copy(Map<K, V> map) {
+        if (map == null) {
+            return null;
+        }
         Map<K, V> copy = new HashMap<>(map.size());
         for (Map.Entry<K, V> e : map.entrySet()) {
             copy.put(e.getKey(), e.getValue());

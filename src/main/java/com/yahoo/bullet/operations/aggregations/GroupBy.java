@@ -37,13 +37,13 @@ import java.util.stream.Collectors;
  */
 public class GroupBy extends KMVStrategy {
     private int size;
-    private Map<String, String> fieldMapping;
+    private final Map<String, String> fieldMapping;
 
     // This is reused for the duration of the strategy.
-    private CachingGroupData container;
+    private final CachingGroupData container;
 
-    private UpdatableSketch<CachingGroupData, GroupDataSummary> updateSketch;
-    private Union<GroupDataSummary> unionSketch;
+    private final UpdatableSketch<CachingGroupData, GroupDataSummary> updateSketch;
+    private final Union<GroupDataSummary> unionSketch;
 
     // 13.27% error rate at 99.73% confidence (3 SD). Irrelevant since we are using this to cap the number of groups.
     public static final int DEFAULT_NOMINAL_ENTRIES = 512;

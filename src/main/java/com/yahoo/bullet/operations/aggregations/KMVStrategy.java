@@ -17,11 +17,13 @@ import java.util.function.Supplier;
  * The parent class for Sketching Strategies that use the KMV type of Sketch - theta and tuple.
  */
 public abstract class KMVStrategy implements Strategy {
+    // Common defaults for KMV type sketches
+    // No Sampling
     public static final float DEFAULT_SAMPLING_PROBABILITY = 1.0f;
-
     // Sketch * 8 its size upto 2 * nominal entries everytime it reaches cap
     public static final int DEFAULT_RESIZE_FACTOR = ResizeFactor.X8.lg();
 
+    // Metadata keys for Standard Deviation
     public static final String META_STD_DEV_1 = "1";
     public static final String META_STD_DEV_2 = "2";
     public static final String META_STD_DEV_3 = "3";
@@ -29,13 +31,14 @@ public abstract class KMVStrategy implements Strategy {
     public static final String META_STD_DEV_LB = "lowerBound";
 
     // Separator for multiple fields when inserting into the Sketch
-    protected String separator;
+    protected final String separator;
 
-    protected Map<String, String> metadataKeys;
-
-    protected List<String> fields;
-
-    protected Map config;
+    // The metadata concept to key mapping
+    protected final Map<String, String> metadataKeys;
+    // The fields being inserted into the Sketch
+    protected final List<String> fields;
+    // A  copy of the configuration
+    protected final Map config;
 
     protected boolean consumed = false;
     protected boolean combined = false;

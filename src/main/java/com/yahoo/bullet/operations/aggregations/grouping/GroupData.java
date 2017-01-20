@@ -147,7 +147,7 @@ public class GroupData implements Serializable {
         for (Map.Entry<String, String> e : groupFields.entrySet()) {
             String field = e.getKey();
             String mapped = mapping.get(field);
-            record.setString(mapped == null ? field : mapped, e.getValue());
+            record.setString(mapped == null || mapped.isEmpty() ? field : mapped, e.getValue());
         }
         return record;
     }

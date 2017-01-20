@@ -24,18 +24,16 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class CountDistinct extends KMVStrategy {
-    private UpdateSketch updateSketch;
-    private Union unionSketch;
-    private String newName;
+    private final UpdateSketch updateSketch;
+    private final Union unionSketch;
+    private final String newName;
 
     public static final String NEW_NAME_KEY = "newName";
     public static final String DEFAULT_NEW_NAME = "COUNT DISTINCT";
 
-
-    // Sketch defaults
+    // Theta Sketch defaults
     // Recommended for real-time systems
     public static final String DEFAULT_UPDATE_SKETCH_FAMILY = Family.ALPHA.getFamilyName();
-
     // This gives us (Alpha sketches fall back to QuickSelect RSEs after compaction or set operations) a 2.34% error
     // rate at 99.73% confidence (3 Standard Deviations).
     public static final int DEFAULT_NOMINAL_ENTRIES = 16384;
@@ -63,7 +61,6 @@ public class CountDistinct extends KMVStrategy {
         updateSketch = UpdateSketch.builder().setFamily(family).setNominalEntries(nominalEntries)
                                              .setP(samplingProbability).setResizeFactor(resizeFactor)
                                              .build();
-
         unionSketch = SetOperation.builder().setNominalEntries(nominalEntries).setP(samplingProbability)
                                             .setResizeFactor(resizeFactor).buildUnion();
     }

@@ -2,12 +2,12 @@ package com.yahoo.bullet.operations.aggregations.grouping;
 
 import com.yahoo.bullet.operations.SerializerDeserializer;
 import com.yahoo.memory.Memory;
+import com.yahoo.memory.NativeMemory;
 import com.yahoo.sketches.tuple.DeserializeResult;
 import com.yahoo.sketches.tuple.UpdatableSummary;
+import lombok.AccessLevel;
 import lombok.Getter;
-
-import java.nio.ByteBuffer;
-import java.util.HashMap;
+import lombok.Setter;
 
 public class GroupDataSummary implements UpdatableSummary<CachingGroupData> {
     public static final int INITIALIZED_POSITION = 0;
@@ -16,30 +16,64 @@ public class GroupDataSummary implements UpdatableSummary<CachingGroupData> {
 
 
     private boolean initialized = false;
-    @Getter
-    private CachingGroupData data;
+
+    @Getter @Setter(AccessLevel.PACKAGE)
+    private GroupData data;
 
     @Override
     public void update(CachingGroupData value) {
-        if (initialized) {
-            data.consume(value.getCachedRecord());
+        if (!initialized) {
+            // This only needs to happen once per summary (i.e. once per group).
+            data = value.copy();
+            initialized = true;
+        }
+        data.consume(value.getCachedRecord());
+    }
+
+    /**
+     * This method merges two {@link GroupDataSummary} into each other. It picks a non-null parameter to merge into
+     * and returns that.
+     *
+     * @param a The first {@link GroupDataSummary} to merge.
+     * @param b The second {@link GroupDataSummary} to merge.
+     * @return One of the resulting merged summaries or null if both arguments were null.
+     */
+    public static GroupDataSummary mergeInPlace(GroupDataSummary a, GroupDataSummary b) {
+        if (a != null) {
+            a.mergeInPlace(b);
+            return a;
+        } else if (b != null) {
+            return b;
+        }
+        return null;
+    }
+
+    private void mergeInPlace(GroupDataSummary other) {
+        if (other == null) {
             return;
         }
-        // This only needs to happen once per summary initialization (i.e. once per group).
-        data = value.copy();
-        initialized = true;
+
+        // This check is unnecessary since all merges will have valid (or at least non empty data) from the very fact
+        // that they were created (see update above).
+        GroupData targetData = other.getData();
+        if (targetData == null) {
+            return;
+        }
+
+        // In-place, so not copying targetData
+        if (data == null) {
+            data = targetData;
+        } else {
+            data.combine(targetData);
+        }
     }
 
     @SuppressWarnings("unchecked")
     @Override
     public GroupDataSummary copy() {
-        // Both groupFields and metrics are expected to not be null
-        // TODO: See if a full copy is needed here.
-        CachingGroupData copiedData = new CachingGroupData(new HashMap<>(data.groupFields), new HashMap<>(data.metrics));
-
         GroupDataSummary copy = new GroupDataSummary();
         copy.initialized = initialized;
-        copy.data = copiedData;
+        copy.data = CachingGroupData.copy(data);
         return copy;
     }
 
@@ -47,12 +81,14 @@ public class GroupDataSummary implements UpdatableSummary<CachingGroupData> {
     public byte[] toByteArray() {
         byte[] groupData = SerializerDeserializer.toBytes(data);
         int length = groupData.length;
+
         // Create a new ByteBuffer to hold a byte, an integer and the data in bytes
-        return ByteBuffer.allocate(DATA_POSITION + length)
-                         .put((byte) (initialized ? 1 : 0))
-                         .putInt(length)
-                         .put(groupData, DATA_POSITION, length)
-                         .array();
+        byte[] serialized = new byte[DATA_POSITION + length];
+        Memory memory = new NativeMemory(serialized);
+        memory.putByte(INITIALIZED_POSITION, (byte) (initialized ? 1 : 0));
+        memory.putInt(SIZE_POSITION, length);
+        memory.putByteArray(DATA_POSITION, groupData, 0, length);
+        return serialized;
     }
 
     /**
@@ -67,7 +103,7 @@ public class GroupDataSummary implements UpdatableSummary<CachingGroupData> {
 
         byte[] data = new byte[size];
         serializedSummary.getByteArray(DATA_POSITION, data, 0, size);
-        CachingGroupData deserializedData = SerializerDeserializer.fromBytes(data);
+        GroupData deserializedData = SerializerDeserializer.fromBytes(data);
 
         GroupDataSummary deserialized = new GroupDataSummary();
         deserialized.initialized = initialized != 0;

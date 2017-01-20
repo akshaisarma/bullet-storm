@@ -2,17 +2,14 @@ package com.yahoo.bullet.operations.aggregations.grouping;
 
 import com.yahoo.sketches.tuple.SummarySetOperations;
 
+/**
+ * The stateless implementation of the summary set operations for a {@link GroupDataSummary}. Intersection is not
+ * supported.
+ */
 public class GroupDataSummarySetOperations implements SummarySetOperations<GroupDataSummary> {
     @Override
     public GroupDataSummary union(GroupDataSummary a, GroupDataSummary b) {
-        GroupDataSummary result = new GroupDataSummary();
-        if (a != null) {
-            result.update(a.getData());
-        }
-        if (b != null) {
-            result.update(b.getData());
-        }
-        return result;
+        return GroupDataSummary.mergeInPlace(a, b);
     }
 
     @Override
