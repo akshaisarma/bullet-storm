@@ -103,7 +103,7 @@ public class JoinBoltTest {
         return SerializerDeserializer.toBytes(groupData);
     }
 
-    public static final void enableMetadataInConfig(Map<String, Object> config, String metaConcept, String key) {
+    public static void enableMetadataInConfig(Map<String, Object> config, String metaConcept, String key) {
         List<Map<String, String>> metadataConfig = (List<Map<String, String>>) config.getOrDefault(BulletConfig.RESULT_METADATA_METRICS, new ArrayList<>());
         Map<String, String> conceptConfig = new HashMap<>();
         conceptConfig.put(BulletConfig.RESULT_METADATA_METRICS_CONCEPT_KEY, metaConcept);

@@ -3,6 +3,8 @@ package com.yahoo.bullet.operations.aggregations;
 import com.yahoo.bullet.BulletConfig;
 import com.yahoo.bullet.operations.aggregations.sketches.KMVSketch;
 import com.yahoo.bullet.parsing.Aggregation;
+import com.yahoo.bullet.result.Clip;
+import com.yahoo.bullet.result.Metadata;
 import com.yahoo.bullet.result.Metadata.Concept;
 import com.yahoo.sketches.ResizeFactor;
 
@@ -16,7 +18,7 @@ import java.util.function.Supplier;
 /**
  * The parent class for Sketching Strategies that use the KMV type of Sketch - theta and tuple.
  */
-public abstract class KMVStrategy implements Strategy {
+public abstract class KMVStrategy<S extends KMVSketch> implements Strategy {
     // Common defaults for KMV type sketches
     // No Sampling
     public static final float DEFAULT_SAMPLING_PROBABILITY = 1.0f;
@@ -30,6 +32,8 @@ public abstract class KMVStrategy implements Strategy {
     public static final String META_STD_DEV_UB = "upperBound";
     public static final String META_STD_DEV_LB = "lowerBound";
 
+    protected S sketch;
+
     // Separator for multiple fields when inserting into the Sketch
     protected final String separator;
 
@@ -39,9 +43,6 @@ public abstract class KMVStrategy implements Strategy {
     protected final List<String> fields;
     // A  copy of the configuration
     protected final Map config;
-
-    protected boolean consumed = false;
-    protected boolean combined = false;
 
     /**
      * Constructor that requires an {@link Aggregation}.
@@ -59,17 +60,45 @@ public abstract class KMVStrategy implements Strategy {
         fields = new ArrayList<>(aggregation.getFields().keySet());
     }
 
+    @Override
+    public void combine(byte[] serializedAggregation) {
+        sketch.union(serializedAggregation);
+    }
+
+    @Override
+    public byte[] getSerializedAggregation() {
+        return sketch.serialize();
+    }
+
     /**
-     * Utility function to add a key to the metadata map if the key is not null.
+     * Adds {@link Metadata} to the {@link Clip} if it is enabled.
      *
-     * @param metadata The non-null {@link Map} representing the metadata.
-     * @param key The key to add if not null.
-     * @param supplier A {@link Supplier} that can produce a value to add to the metadata for the key.
+     * @param clip The clip to add the metadata to.
+     * @return The original clip with or without metadata added.
      */
-    public static void addIfKeyNonNull(Map<String, Object> metadata, String key, Supplier<Object> supplier) {
-        if (key != null) {
-            metadata.put(key, supplier.get());
-        }
+    protected Clip addMetadata(Clip clip) {
+        String metaKey = getAggregationMetaKey();
+        return metaKey == null ? clip : clip.add(new Metadata().add(metaKey, getSketchMetadata(metadataKeys)));
+    }
+
+    /**
+     * Gets the common metadata for this Sketch strategy.
+     *
+     * @param conceptKeys The {@link Map} of {@link Concept} names to their keys.
+     * @return The created {@link Map} of sketch metadata.
+     */
+    protected Map<String, Object> getSketchMetadata(Map<String, String> conceptKeys) {
+        Map<String, Object> metadata = new HashMap<>();
+
+        String standardDeviationsKey = conceptKeys.get(Concept.STANDARD_DEVIATIONS.getName());
+        String isEstimatedKey = conceptKeys.get(Concept.ESTIMATED_RESULT.getName());
+        String thetaKey = conceptKeys.get(Concept.SKETCH_THETA.getName());
+
+        addIfKeyNonNull(metadata, standardDeviationsKey, () -> getStandardDeviations(sketch));
+        addIfKeyNonNull(metadata, isEstimatedKey, sketch::isEstimationMode);
+        addIfKeyNonNull(metadata, thetaKey, sketch::getTheta);
+
+        return metadata;
     }
 
     /**
@@ -84,36 +113,6 @@ public abstract class KMVStrategy implements Strategy {
         standardDeviations.put(META_STD_DEV_2, getStandardDeviation(sketch, 2));
         standardDeviations.put(META_STD_DEV_3, getStandardDeviation(sketch, 3));
         return standardDeviations;
-    }
-
-    /**
-     * Checks to see if aggregation metadata collection is enabled and returns the key if so.
-     *
-     * @return A String key to use for storing the aggregation metadata or null if it was not enabled.
-     */
-    public String getAggregationMetaKey() {
-        return metadataKeys.getOrDefault(Concept.AGGREGATION_METADATA.getName(), null);
-    }
-
-    /**
-     * Gets the common metadata for this Sketch strategy.
-     *
-     * @param sketch The {@link KMVSketch} to get metadata for.
-     * @param conceptKeys The {@link Map} of {@link Concept} names to their keys.
-     * @return The created {@link Map} of sketch metadata.
-     */
-    public Map<String, Object> getSketchMetadata(KMVSketch sketch, Map<String, String> conceptKeys) {
-        Map<String, Object> metadata = new HashMap<>();
-
-        String standardDeviationsKey = conceptKeys.get(Concept.STANDARD_DEVIATIONS.getName());
-        String isEstimatedKey = conceptKeys.get(Concept.ESTIMATED_RESULT.getName());
-        String thetaKey = conceptKeys.get(Concept.SKETCH_THETA.getName());
-
-        addIfKeyNonNull(metadata, standardDeviationsKey, () -> getStandardDeviations(sketch));
-        addIfKeyNonNull(metadata, isEstimatedKey, sketch::isEstimationMode);
-        addIfKeyNonNull(metadata, thetaKey, sketch::getTheta);
-
-        return metadata;
     }
 
     /**
@@ -161,4 +160,22 @@ public abstract class KMVStrategy implements Strategy {
                 return ResizeFactor.X8;
         }
     }
+
+    /**
+     * Utility function to add a key to the metadata map if the key is not null.
+     *
+     * @param metadata The non-null {@link Map} representing the metadata.
+     * @param key The key to add if not null.
+     * @param supplier A {@link Supplier} that can produce a value to add to the metadata for the key.
+     */
+    public static void addIfKeyNonNull(Map<String, Object> metadata, String key, Supplier<Object> supplier) {
+        if (key != null) {
+            metadata.put(key, supplier.get());
+        }
+    }
+
+    private String getAggregationMetaKey() {
+        return metadataKeys.getOrDefault(Concept.AGGREGATION_METADATA.getName(), null);
+    }
+
 }

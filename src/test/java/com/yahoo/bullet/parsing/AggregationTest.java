@@ -11,6 +11,7 @@ import com.yahoo.bullet.operations.AggregationOperations;
 import com.yahoo.bullet.operations.AggregationOperations.GroupOperationType;
 import com.yahoo.bullet.operations.aggregations.CountDistinct;
 import com.yahoo.bullet.operations.aggregations.GroupAll;
+import com.yahoo.bullet.operations.aggregations.GroupBy;
 import com.yahoo.bullet.operations.aggregations.Raw;
 import com.yahoo.bullet.operations.aggregations.grouping.GroupOperation;
 import org.testng.Assert;
@@ -120,25 +121,6 @@ public class AggregationTest {
     }
 
     @Test
-    public void testFailValidateOnGroupAllNoOperations() {
-        Aggregation aggregation = new Aggregation();
-        aggregation.setType(GROUP);
-        List<Error> errors = aggregation.validate().get();
-        Assert.assertEquals(errors.size(), 1);
-        Assert.assertEquals(errors.get(0).getError(), Aggregation.GROUP_ALL_OPERATION_ERROR.getError());
-    }
-
-    @Test
-    public void testFailValidateOnGroupWithFields() {
-        Aggregation aggregation = new Aggregation();
-        aggregation.setType(GROUP);
-        aggregation.setFields(singletonMap("foo", "bar"));
-        List<Error> errors = aggregation.validate().get();
-        Assert.assertEquals(errors.size(), 1);
-        Assert.assertEquals(errors.get(0).getError(), Aggregation.GROUP_FIELDS_NOT_SUPPORTED_ERROR.getError());
-    }
-
-    @Test
     public void testSuccessfulValidate() {
         Aggregation aggregation = new Aggregation();
         aggregation.setType(GROUP);
@@ -180,7 +162,8 @@ public class AggregationTest {
         // Missing attribute operations should be silently ignored
         Assert.assertNull(aggregation.getGroupOperations());
         aggregation.configure(emptyMap());
-        Assert.assertNull(aggregation.getGroupOperations());
+        Assert.assertNotNull(aggregation.getGroupOperations());
+        Assert.assertTrue(aggregation.getGroupOperations().isEmpty());
     }
 
     @Test
@@ -191,7 +174,8 @@ public class AggregationTest {
 
         Assert.assertNull(aggregation.getGroupOperations());
         aggregation.configure(emptyMap());
-        Assert.assertNull(aggregation.getGroupOperations());
+        Assert.assertNotNull(aggregation.getGroupOperations());
+        Assert.assertTrue(aggregation.getGroupOperations().isEmpty());
     }
 
     @Test
@@ -243,7 +227,7 @@ public class AggregationTest {
 
         List<Error> errors = aggregation.validate().get();
         Assert.assertEquals(errors.size(), 1);
-        Assert.assertEquals(errors.get(0), Aggregation.COUNT_DISTINCT_REQUIRES_FIELD_ERROR);
+        Assert.assertEquals(errors.get(0), Aggregation.REQUIRES_FIELD_ERROR);
 
     }
 
@@ -269,10 +253,6 @@ public class AggregationTest {
     @Test
     public void testUnimplementedStrategies() {
         Aggregation aggregation = new Aggregation();
-
-        aggregation.setType(AggregationOperations.AggregationType.GROUP);
-        aggregation.configure(Collections.emptyMap());
-        Assert.assertNull(aggregation.getStrategy());
 
         aggregation.setType(AggregationOperations.AggregationType.PERCENTILE);
         aggregation.configure(Collections.emptyMap());
@@ -311,6 +291,29 @@ public class AggregationTest {
         aggregation.configure(Collections.emptyMap());
 
         Assert.assertEquals(aggregation.getStrategy().getClass(), CountDistinct.class);
+    }
+
+    @Test
+    public void testDistinctStrategy() {
+        Aggregation aggregation = new Aggregation();
+        aggregation.setType(AggregationOperations.AggregationType.GROUP);
+        aggregation.setFields(singletonMap("field", "foo"));
+        aggregation.configure(Collections.emptyMap());
+
+        Assert.assertEquals(aggregation.getStrategy().getClass(), GroupBy.class);
+    }
+
+    @Test
+    public void testGroupByStrategy() {
+        Aggregation aggregation = new Aggregation();
+        aggregation.setType(AggregationOperations.AggregationType.GROUP);
+        aggregation.setFields(singletonMap("field", "foo"));
+        aggregation.setAttributes(singletonMap(Aggregation.OPERATIONS,
+                                                asList(singletonMap(Aggregation.OPERATION_TYPE,
+                                                                    GroupOperationType.COUNT.getName()))));
+        aggregation.configure(Collections.emptyMap());
+
+        Assert.assertEquals(aggregation.getStrategy().getClass(), GroupBy.class);
     }
 }
 

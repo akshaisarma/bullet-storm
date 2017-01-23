@@ -11,6 +11,7 @@ import com.yahoo.bullet.operations.AggregationOperations.AggregationType;
 import com.yahoo.bullet.operations.AggregationOperations.GroupOperationType;
 import com.yahoo.bullet.operations.aggregations.CountDistinct;
 import com.yahoo.bullet.operations.aggregations.GroupAll;
+import com.yahoo.bullet.operations.aggregations.GroupBy;
 import com.yahoo.bullet.operations.aggregations.Raw;
 import com.yahoo.bullet.operations.aggregations.grouping.GroupOperation;
 import com.yahoo.bullet.operations.aggregations.Strategy;
@@ -19,6 +20,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +50,7 @@ public class Aggregation implements Configurable, Validatable {
     @Setter(AccessLevel.NONE)
     private Strategy strategy;
 
-    // In case, any strategies need it.
+    // In case any strategies need it.
     private Map configuration;
 
     // TODO: Move this to a Validation object tied in properly with Strategies when all are added.
@@ -72,15 +74,8 @@ public class Aggregation implements Configurable, Validatable {
     public static final String GROUP_OPERATION_REQUIRES_FIELD = "Group operation requires a field: ";
     public static final String OPERATION_REQUIRES_FIELD_RESOLUTION = "Please add a field for this operation.";
 
-    public static final Error COUNT_DISTINCT_REQUIRES_FIELD_ERROR =
-            makeError("Count Distinct requires atleast one field", OPERATION_REQUIRES_FIELD_RESOLUTION);
-
-    // Temporary
-    public static final Error GROUP_FIELDS_NOT_SUPPORTED_ERROR = makeError("Group type aggregation cannot have fields",
-                                                                           "Do not specify fields when type is GROUP");
-    // Temporary
-    public static final Error GROUP_ALL_OPERATION_ERROR = makeError("Group all needs to specify an operation to do",
-                                                                    SUPPORTED_GROUP_OPERATIONS_RESOLUTION);
+    public static final Error REQUIRES_FIELD_ERROR =
+            makeError("This aggregation type requires at least one field", OPERATION_REQUIRES_FIELD_RESOLUTION);
 
     public static final Integer DEFAULT_SIZE = 1;
     public static final Integer DEFAULT_MAX_SIZE = 512;
@@ -119,19 +114,9 @@ public class Aggregation implements Configurable, Validatable {
 
     @Override
     public Optional<List<Error>> validate() {
-        if (type == AggregationType.GROUP) {
-            // We only support GROUP by ALL for now
-            if (!isEmpty(fields)) {
-                return Optional.of(singletonList(GROUP_FIELDS_NOT_SUPPORTED_ERROR));
-            }
-            // Group operations are only created if they are supported.
-            if (isEmpty(groupOperations)) {
-                return Optional.of(singletonList(GROUP_ALL_OPERATION_ERROR));
-            }
-        }
         if (type == AggregationType.COUNT_DISTINCT) {
             if (isEmpty(fields)) {
-                return Optional.of(singletonList(COUNT_DISTINCT_REQUIRES_FIELD_ERROR));
+                return Optional.of(singletonList(REQUIRES_FIELD_ERROR));
             }
         }
         // Supported aggregation types should be documented in TYPE_NOT_SUPPORTED_RESOLUTION
@@ -140,7 +125,7 @@ public class Aggregation implements Configurable, Validatable {
             return Optional.of(singletonList(makeError(TYPE_NOT_SUPPORTED_ERROR_PREFIX + typeSuffix,
                                                        TYPE_NOT_SUPPORTED_RESOLUTION)));
         }
-        if (groupOperations != null) {
+        if (!groupOperations.isEmpty()) {
             for (GroupOperation operation : groupOperations) {
                 if (operation.getField() == null && operation.getType() != GroupOperationType.COUNT) {
                     return Optional.of(singletonList(makeError(GROUP_OPERATION_REQUIRES_FIELD + operation.getType(),
@@ -161,15 +146,21 @@ public class Aggregation implements Configurable, Validatable {
             return new Raw(this);
         }
 
-        boolean noFields = isEmpty(fields);
+        boolean haveFields = !isEmpty(fields);
 
-        if (type == AggregationType.COUNT_DISTINCT && !noFields) {
+        if (type == AggregationType.COUNT_DISTINCT && haveFields) {
             return new CountDistinct(this);
         }
 
-        boolean noOperations = isEmpty(groupOperations);
-        if (type == AggregationType.GROUP && noFields && !noOperations) {
-            return new GroupAll(this);
+        boolean haveOperations = !isEmpty(groupOperations);
+        if (type == AggregationType.GROUP) {
+            if (haveFields) {
+                return new GroupBy(this);
+            }
+            // We don't have fields
+            if (haveOperations) {
+                return new GroupAll(this);
+            }
         }
 
         return null;
@@ -185,14 +176,14 @@ public class Aggregation implements Configurable, Validatable {
 
     private Set<GroupOperation> getOperations() {
         if (isEmpty(attributes)) {
-            return null;
+            return Collections.emptySet();
         }
         return parseOperations(attributes.get(OPERATIONS));
     }
 
     private Set<GroupOperation> parseOperations(Object object) {
         if (object == null) {
-            return null;
+            return Collections.emptySet();
         }
         try {
             // Unchecked cast needed.
@@ -202,7 +193,7 @@ public class Aggregation implements Configurable, Validatable {
                     .filter(Objects::nonNull)
                     .collect(Collectors.toSet());
         } catch (ClassCastException cce) {
-            return null;
+            return Collections.emptySet();
         }
     }
 

@@ -24,7 +24,7 @@ public class GroupDataSummary implements UpdatableSummary<CachingGroupData> {
     public void update(CachingGroupData value) {
         if (!initialized) {
             // This only needs to happen once per summary (i.e. once per group).
-            data = value.copy();
+            data = value.partialCopy();
             initialized = true;
         }
         data.consume(value.getCachedRecord());

@@ -4,24 +4,16 @@ import com.yahoo.bullet.BulletConfig;
 import com.yahoo.bullet.operations.aggregations.grouping.CachingGroupData;
 import com.yahoo.bullet.operations.aggregations.grouping.GroupData;
 import com.yahoo.bullet.operations.aggregations.grouping.GroupDataSummary;
-import com.yahoo.bullet.operations.aggregations.grouping.GroupDataSummaryFactory;
 import com.yahoo.bullet.operations.aggregations.grouping.GroupOperation;
-import com.yahoo.bullet.operations.aggregations.sketches.TupleKMVSketch;
+import com.yahoo.bullet.operations.aggregations.sketches.TupleSketch;
 import com.yahoo.bullet.parsing.Aggregation;
 import com.yahoo.bullet.parsing.Specification;
 import com.yahoo.bullet.record.BulletRecord;
 import com.yahoo.bullet.result.Clip;
-import com.yahoo.bullet.result.Metadata;
 import com.yahoo.bullet.result.Metadata.Concept;
-import com.yahoo.memory.NativeMemory;
 import com.yahoo.sketches.ResizeFactor;
-import com.yahoo.sketches.tuple.CompactSketch;
 import com.yahoo.sketches.tuple.Sketch;
 import com.yahoo.sketches.tuple.SketchIterator;
-import com.yahoo.sketches.tuple.Sketches;
-import com.yahoo.sketches.tuple.Union;
-import com.yahoo.sketches.tuple.UpdatableSketch;
-import com.yahoo.sketches.tuple.UpdatableSketchBuilder;
 
 import java.util.HashMap;
 import java.util.List;
@@ -35,15 +27,12 @@ import java.util.stream.Collectors;
  * sum and count when summed across the uniform sample and divided the sketch theta gives an approximate estimate
  * of the total sum and count across all the groups.
  */
-public class GroupBy extends KMVStrategy {
+public class GroupBy extends KMVStrategy<TupleSketch> {
     private int size;
     private final Map<String, String> fieldMapping;
 
     // This is reused for the duration of the strategy.
     private final CachingGroupData container;
-
-    private final UpdatableSketch<CachingGroupData, GroupDataSummary> updateSketch;
-    private final Union<GroupDataSummary> unionSketch;
 
     // 13.27% error rate at 99.73% confidence (3 SD). Irrelevant since we are using this to cap the number of groups.
     public static final int DEFAULT_NOMINAL_ENTRIES = 512;
@@ -53,7 +42,6 @@ public class GroupBy extends KMVStrategy {
      *
      * @param aggregation An {@link Aggregation} with valid fields and attributes for this aggregation type.
      */
-    @SuppressWarnings("unchecked")
     public GroupBy(Aggregation aggregation) {
         super(aggregation);
 
@@ -68,41 +56,24 @@ public class GroupBy extends KMVStrategy {
         int nominalEntries = ((Number) config.getOrDefault(BulletConfig.GROUP_AGGREGATION_SKETCH_ENTRIES,
                                                            DEFAULT_NOMINAL_ENTRIES)).intValue();
 
-        GroupDataSummaryFactory factory = new GroupDataSummaryFactory();
-        UpdatableSketchBuilder<CachingGroupData, GroupDataSummary> builder = new UpdatableSketchBuilder(factory);
-        updateSketch = builder.setResizeFactor(resizeFactor).setNominalEntries(nominalEntries)
-                              .setSamplingProbability(samplingProbability).build();
-        unionSketch = new Union<>(nominalEntries, factory);
+        sketch = new TupleSketch(resizeFactor, samplingProbability, nominalEntries);
     }
 
     @Override
     public void consume(BulletRecord data) {
-        Map<String, String> fieldMapping = getGroups(data);
-        String key = getFieldsAsString(fields, fieldMapping, separator);
+        Map<String, String> fieldToValues = getGroups(data);
+        String key = getFieldsAsString(fields, fieldToValues, separator);
 
         // Set the record and the group values into the container. The metrics are already initialized.
         container.setCachedRecord(data);
-        container.setGroupFields(fieldMapping);
-        updateSketch.update(key, container);
-        consumed = true;
-    }
-
-    @Override
-    public void combine(byte[] serializedAggregation) {
-        Sketch<GroupDataSummary> deserialized = Sketches.heapifySketch(new NativeMemory(serializedAggregation));
-        unionSketch.update(deserialized);
-        combined = true;
-    }
-
-    @Override
-    public byte[] getSerializedAggregation() {
-        Sketch<GroupDataSummary> compactSketch = merge();
-        return compactSketch.toByteArray();
+        container.setGroupFields(fieldToValues);
+        sketch.update(key, container);
     }
 
     @Override
     public Clip getAggregation() {
-        Sketch<GroupDataSummary> result = merge();
+        sketch.collect();
+        Sketch<GroupDataSummary> result = sketch.getMergedSketch();
         Clip clip = new Clip();
 
         SketchIterator<GroupDataSummary> iterator = result.iterator();
@@ -111,22 +82,19 @@ public class GroupBy extends KMVStrategy {
             // Add the record with the remapped group names to new names.
             clip.add(data.getAsBulletRecord(fieldMapping));
         }
-
-        String metaKey = getAggregationMetaKey();
-        return metaKey == null ? clip : clip.add(new Metadata().add(metaKey, getSketchMetadata(result, metadataKeys)));
+        return addMetadata(clip);
     }
 
-    private CompactSketch<GroupDataSummary> merge() {
-        // Merge the updateSketch into the unionSketch. Supporting it for completeness.
-        if (consumed && combined) {
-            unionSketch.update(updateSketch.compact());
-        }
+    @Override
+    protected Map<String, Object> getSketchMetadata(Map<String, String> conceptKeys) {
+        Map<String, Object> metadata = super.getSketchMetadata(conceptKeys);
 
-        if (combined) {
-            return unionSketch.getResult();
-        } else {
-            return updateSketch.compact();
-        }
+        Sketch<GroupDataSummary> result = sketch.getMergedSketch();
+
+        String uniquesEstimate = conceptKeys.get(Concept.UNIQUES_ESTIMATE.getName());
+        addIfKeyNonNull(metadata, uniquesEstimate, result::getEstimate);
+
+        return metadata;
     }
 
     private static String getFieldsAsString(List<String> fields, Map<String, String> mapping, String separator) {
@@ -136,20 +104,11 @@ public class GroupBy extends KMVStrategy {
     private Map<String, String> getGroups(BulletRecord record) {
         Map<String, String> groupMapping = new HashMap<>();
         for (String key : fields) {
-            // This explicitly does not do a TypedObject checking. Nulls turn into Strings
+            // This explicitly does not do a TypedObject checking. Nulls (and everything else) turn into Strings
             String value = Objects.toString(Specification.extractField(key, record));
             groupMapping.put(key, value);
         }
         return groupMapping;
     }
 
-    private Map<String, Object> getSketchMetadata(Sketch<GroupDataSummary> sketch, Map<String, String> conceptKeys) {
-        TupleKMVSketch wrapped = new TupleKMVSketch(sketch);
-        Map<String, Object> metadata = super.getSketchMetadata(wrapped, conceptKeys);
-
-        String uniquesEstimate = conceptKeys.get(Concept.UNIQUES_ESTIMATE.getName());
-        addIfKeyNonNull(metadata, uniquesEstimate, sketch::getEstimate);
-
-        return metadata;
-    }
 }

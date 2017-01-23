@@ -9,7 +9,7 @@ import java.util.Map;
 
 /**
  * This class exists to optimize how the {@link GroupDataSummary} updates the summary for each record update. It
- * stores a copy of the {@link BulletRecord} so that the existing {@link GroupData} in the summary can just
+ * stores a partialCopy of the {@link BulletRecord} so that the existing {@link GroupData} in the summary can just
  * {@link GroupData#consume(BulletRecord)} it. It also can only be initialized with already created group fields
  * and metrics. This helps us not have to keep recreating group fields and metrics for every single record.
  */
@@ -29,16 +29,16 @@ public class CachingGroupData extends GroupData {
     }
 
     /**
-     * Creates an copy of the groups and metrics.
+     * Creates an partial copy of itself. Only the metrics are copied, not the group.
      *
      * @return A copied {@link CachingGroupData}.
      */
-    public CachingGroupData copy() {
-        return new CachingGroupData(copy(groupFields), copy(metrics));
+    public CachingGroupData partialCopy() {
+        return new CachingGroupData(groupFields, copy(metrics));
     }
 
     /**
-     * Creates a copy of another {@link GroupData}.
+     * Creates a full copy of another {@link GroupData}.
      *
      * @param other The other GroupData to copy. If not-null, must have groups and metrics.
      * @return A {@link CachingGroupData} copy of the GroupData or null if it was null.

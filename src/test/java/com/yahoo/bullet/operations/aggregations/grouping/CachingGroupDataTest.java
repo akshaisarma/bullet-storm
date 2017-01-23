@@ -27,20 +27,22 @@ public class CachingGroupDataTest {
     }
 
     @Test
-    public void testSelfCopy() {
+    public void testSelfPartialCopy() {
         CachingGroupData original = sampleSumGroupData(20.0);
-        CachingGroupData copy = original.copy();
+        CachingGroupData copy = original.partialCopy();
 
         copy.groupFields.put("foo", "baz");
         copy.metrics.remove(OPERATION);
 
+        // Group fields are changed
         Assert.assertEquals(original.groupFields.size(), 1);
-        Assert.assertEquals(original.groupFields.get("foo"), "bar");
-        Assert.assertEquals(original.metrics.size(), 1);
-        Assert.assertEquals(original.metrics.get(OPERATION), 20.0);
-
+        Assert.assertEquals(original.groupFields.get("foo"), "baz");
         Assert.assertEquals(copy.groupFields.size(), 1);
         Assert.assertEquals(copy.groupFields.get("foo"), "baz");
+
+        // Metrics are unchanged
+        Assert.assertEquals(original.metrics.size(), 1);
+        Assert.assertEquals(original.metrics.get(OPERATION), 20.0);
         Assert.assertEquals(copy.metrics.size(), 0);
     }
 
