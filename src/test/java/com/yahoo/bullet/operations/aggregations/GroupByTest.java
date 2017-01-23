@@ -52,6 +52,12 @@ public class GroupByTest {
     }
 
     @SafeVarargs
+    public static GroupBy makeGroupBy(Map<Object, Object> configuration, Map<String, String> fields, int size,
+                                      Map<String, String>... operations) {
+        return makeGroupBy(configuration, fields, size, asList(operations), ALL_METADATA);
+    }
+
+    @SafeVarargs
     public static GroupBy makeGroupBy(Map<String, String> fields, int size, Map<String, String>... operations) {
         return makeGroupBy(makeConfiguration(16), fields, size, asList(operations), ALL_METADATA);
     }
@@ -277,5 +283,53 @@ public class GroupByTest {
         assertContains(records, expectedA);
         assertContains(records, expectedB);
         assertContains(records, expectedC);
+    }
+
+    @Test
+    public void testMetadata() {
+        Map<String, String> fields = singletonMap("fieldA", "A");
+        // Nominal Entries is 32. Aggregation size is also 32
+        GroupBy groupBy = makeGroupBy(makeConfiguration(32), fields, 32,
+                                      singletonList(makeGroupOperation(COUNT, null, null)), ALL_METADATA);
+
+        // Generate 4 batches of 64 records with 0 - 63 in fieldA.
+        IntStream.range(0, 256).mapToObj(i -> RecordBox.get().add("fieldA", i % 64).getRecord()).forEach(groupBy::consume);
+        Clip aggregate = groupBy.getAggregation();
+        Assert.assertNotNull(aggregate);
+
+        List<BulletRecord> records = aggregate.getRecords();
+        Assert.assertEquals(records.size(), 32);
+
+        Map<String, Object> meta = aggregate.getMeta().asMap();
+        Assert.assertEquals(meta.size(), 1);
+
+        Map<String, Object> stats = (Map<String, Object>) meta.get("aggregate_stats");
+        Assert.assertEquals(stats.size(), 4);
+
+        Assert.assertTrue((Boolean) stats.get("isEstimate"));
+
+        double theta = (Double) stats.get("theta");
+        Assert.assertTrue(theta <= 1.0);
+
+        double groupEstimate = (Double) stats.get("uniquesApprox");
+
+        Assert.assertTrue(stats.containsKey("stddev"));
+        Map<String, Map<String, Double>> standardDeviations = (Map<String, Map<String, Double>>) stats.get("stddev");
+        Assert.assertEquals(standardDeviations.size(), 3);
+
+        double upperOneSigma = standardDeviations.get(CountDistinct.META_STD_DEV_1).get(CountDistinct.META_STD_DEV_UB);
+        double lowerOneSigma = standardDeviations.get(CountDistinct.META_STD_DEV_1).get(CountDistinct.META_STD_DEV_LB);
+        double upperTwoSigma = standardDeviations.get(CountDistinct.META_STD_DEV_2).get(CountDistinct.META_STD_DEV_UB);
+        double lowerTwoSigma = standardDeviations.get(CountDistinct.META_STD_DEV_2).get(CountDistinct.META_STD_DEV_LB);
+        double upperThreeSigma = standardDeviations.get(CountDistinct.META_STD_DEV_3).get(CountDistinct.META_STD_DEV_UB);
+        double lowerThreeSigma = standardDeviations.get(CountDistinct.META_STD_DEV_3).get(CountDistinct.META_STD_DEV_LB);
+
+        Assert.assertTrue(groupEstimate >= lowerOneSigma);
+        Assert.assertTrue(groupEstimate <= upperOneSigma);
+        Assert.assertTrue(groupEstimate >= lowerTwoSigma);
+        Assert.assertTrue(groupEstimate <= upperTwoSigma);
+        Assert.assertTrue(groupEstimate >= lowerThreeSigma);
+        Assert.assertTrue(groupEstimate <= upperThreeSigma);
+        Assert.assertTrue(groupEstimate <= upperThreeSigma);
     }
 }
