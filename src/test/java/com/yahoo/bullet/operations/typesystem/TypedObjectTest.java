@@ -116,6 +116,14 @@ public class TypedObjectTest {
     }
 
     @Test
+    public void testUnknownComparison() {
+        TypedObject objectA = new TypedObject(Collections.emptyList());
+        TypedObject objectB = new TypedObject(42.1);
+        Assert.assertEquals(objectA.compareTo(objectB), Integer.MIN_VALUE);
+        Assert.assertEquals(objectA.compareTo(objectA), Integer.MIN_VALUE);
+    }
+
+    @Test
     public void testNullComparisonToOthers() {
         TypedObject objectA = new TypedObject(null);
         TypedObject objectB = new TypedObject(42.1);
@@ -130,6 +138,13 @@ public class TypedObjectTest {
         TypedObject nullObject = new TypedObject(null);
         TypedObject object = new TypedObject(42.1);
         object.compareTo(nullObject);
+    }
+
+    @Test(expectedExceptions = ClassCastException.class)
+    public void testOtherComparisontoUnknown() {
+        TypedObject objectA = new TypedObject(Collections.emptyList());
+        TypedObject objectB = new TypedObject(42.1);
+        objectB.compareTo(objectA);
     }
 
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unsupported type cannot .*")

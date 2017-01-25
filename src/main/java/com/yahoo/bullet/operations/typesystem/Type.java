@@ -24,7 +24,9 @@ public enum Type {
     UNKNOWN(Type.class);
 
     public static final String NULL_EXPRESSION = "null";
-    public static List<Type> PRIMITIVES = Type.simpleTypes();
+    public static List<Type> PRIMITIVES = Arrays.asList(BOOLEAN, LONG, DOUBLE, STRING);
+    public static List<Type> NUMERICS = Arrays.asList(LONG, DOUBLE);
+
     private final Class underlyingType;
 
     /**
@@ -34,15 +36,6 @@ public enum Type {
      */
     Type(Class underlyingType) {
         this.underlyingType = underlyingType;
-    }
-
-    /**
-     * The atomic, simple, non-null types we support.
-     *
-     * @return The list of simple types.
-     */
-    public static List<Type> simpleTypes() {
-        return Arrays.asList(BOOLEAN, LONG, DOUBLE, STRING);
     }
 
     /**

@@ -15,8 +15,10 @@ import java.util.HashSet;
 public class TypeTest {
     @Test
     public void testCurrentTypes() {
-        Assert.assertEquals(new HashSet<>(Type.PRIMITIVES), new HashSet<>(Arrays.asList(Type.LONG, Type.BOOLEAN, Type.DOUBLE, Type.STRING)));
-        Assert.assertEquals(Type.PRIMITIVES, Type.simpleTypes());
+        Assert.assertEquals(new HashSet<>(Type.PRIMITIVES),
+                            new HashSet<>(Arrays.asList(Type.LONG, Type.BOOLEAN, Type.DOUBLE, Type.STRING)));
+        Assert.assertEquals(new HashSet<>(Type.NUMERICS),
+                            new HashSet<>(Arrays.asList(Type.LONG, Type.DOUBLE)));
     }
 
     @Test

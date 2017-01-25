@@ -40,14 +40,32 @@ public class TypedObject implements Comparable<TypedObject> {
     }
 
     /**
-     * Takes a String value and a returns a casted TypedObject according to this type.
+     * Takes a String value and returns a casted TypedObject according to this type.
      *
      * @param value The string value that is being cast.
      * @return The casted TypedObject with the type set to the appropriate {@link Type}.
      */
     public TypedObject typeCast(String value) {
         try {
-            return new TypedObject(this.type, this.type.cast(value));
+            return new TypedObject(type, type.cast(value));
+        } catch (RuntimeException e) {
+            return new TypedObject(Type.UNKNOWN, value);
+        }
+    }
+
+    /**
+     * Takes a non-null value and returns a numeric TypedObject - it has a type in {@link Type#NUMERICS}. The value
+     * is then a {@link Number}. It uses the String representation of the object to cast it.
+     *
+     * @param value The Object value that is being cast to a numeric.
+     * @return The casted TypedObject with the type set to numeric or {@link Type#UNKNOWN} if not.
+     */
+    public static TypedObject makeNumber(Object value) {
+        if (value == null) {
+            return new TypedObject(Type.UNKNOWN, null);
+        }
+        try {
+            return new TypedObject(Type.DOUBLE, Type.DOUBLE.cast(value.toString()));
         } catch (RuntimeException e) {
             return new TypedObject(Type.UNKNOWN, value);
         }
