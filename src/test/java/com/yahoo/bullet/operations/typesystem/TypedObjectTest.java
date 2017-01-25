@@ -14,8 +14,8 @@ public class TypedObjectTest {
     @Test
     public void testTypedObjectWithUnsupportedType() {
         TypedObject object = new TypedObject(Collections.emptyList());
-        Assert.assertEquals(object.getType(), Type.STRING);
-        Assert.assertEquals(object.getValue(), Collections.emptyList().toString());
+        Assert.assertEquals(object.getType(), Type.UNKNOWN);
+        Assert.assertEquals(object.getValue(), Collections.emptyList());
     }
 
     @Test
@@ -53,14 +53,23 @@ public class TypedObjectTest {
 
     @Test
     public void testFailTypeCasting() {
-        TypedObject object = new TypedObject(1L);
-        Assert.assertNull(object.typeCast("1234.0"));
+        TypedObject object;
+        TypedObject casted;
+
+        object = new TypedObject(1L);
+        casted = object.typeCast("1234.0");
+        Assert.assertEquals(casted.getType(), Type.UNKNOWN);
+        Assert.assertEquals(object.getValue(), 1L);
 
         object = new TypedObject(Type.MAP, Collections.emptyMap());
-        Assert.assertNull(object.typeCast("{}"));
+        casted = object.typeCast("{}");
+        Assert.assertEquals(casted.getType(), Type.UNKNOWN);
+        Assert.assertEquals(casted.getValue(), "{}");
 
         object = new TypedObject(Type.LIST, Collections.emptyList());
-        Assert.assertNull(object.typeCast("[]"));
+        casted = object.typeCast("[]");
+        Assert.assertEquals(casted.getType(), Type.UNKNOWN);
+        Assert.assertEquals(casted.getValue(), "[]");
     }
 
     @Test(expectedExceptions = ClassCastException.class)
