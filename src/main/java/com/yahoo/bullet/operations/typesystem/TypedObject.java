@@ -13,10 +13,12 @@ import java.util.function.Predicate;
 @Getter
 public class TypedObject implements Comparable<TypedObject> {
     private final Type type;
+    // value is undefined if type is Type.UNKNOWN
     private final Object value;
 
     public static final Predicate<TypedObject> IS_NOT_UNKNOWN = (t) -> t.getType() != Type.UNKNOWN;
     public static final Predicate<TypedObject> IS_NOT_NULL = (t) -> t.getType() != Type.NULL;
+    public static final TypedObject GENERIC_UNKNOWN = new TypedObject(Type.UNKNOWN, null);
 
     /**
      * Constructor that wraps an Object into a type.
@@ -43,13 +45,14 @@ public class TypedObject implements Comparable<TypedObject> {
      * Takes a String value and returns a casted TypedObject according to this type.
      *
      * @param value The string value that is being cast.
-     * @return The casted TypedObject with the type set to the appropriate {@link Type}.
+     * @return The casted TypedObject with the type set to the appropriate {@link Type} or
+     *         {@link TypedObject#GENERIC_UNKNOWN} if it cannot.
      */
     public TypedObject typeCast(String value) {
         try {
             return new TypedObject(type, type.cast(value));
         } catch (RuntimeException e) {
-            return new TypedObject(Type.UNKNOWN, value);
+            return GENERIC_UNKNOWN;
         }
     }
 
@@ -58,16 +61,16 @@ public class TypedObject implements Comparable<TypedObject> {
      * is then a {@link Number}. It uses the String representation of the object to cast it.
      *
      * @param value The Object value that is being cast to a numeric.
-     * @return The casted TypedObject with the type set to numeric or {@link Type#UNKNOWN} if not.
+     * @return The casted TypedObject with the type set to numeric or {@link TypedObject#GENERIC_UNKNOWN} if not.
      */
     public static TypedObject makeNumber(Object value) {
         if (value == null) {
-            return new TypedObject(Type.UNKNOWN, null);
+            return GENERIC_UNKNOWN;
         }
         try {
             return new TypedObject(Type.DOUBLE, Type.DOUBLE.cast(value.toString()));
         } catch (RuntimeException e) {
-            return new TypedObject(Type.UNKNOWN, value);
+            return GENERIC_UNKNOWN;
         }
     }
 

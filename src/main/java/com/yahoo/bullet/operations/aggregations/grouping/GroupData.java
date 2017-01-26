@@ -11,6 +11,7 @@ import com.yahoo.bullet.operations.AggregationOperations.GroupOperationType;
 import com.yahoo.bullet.operations.SerializerDeserializer;
 import com.yahoo.bullet.operations.typesystem.Type;
 import com.yahoo.bullet.operations.typesystem.TypedObject;
+import com.yahoo.bullet.parsing.Specification;
 import com.yahoo.bullet.record.BulletRecord;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
@@ -156,7 +157,7 @@ public class GroupData implements Serializable {
 
     private void consume(Map.Entry<GroupOperation, Number> metric, BulletRecord data) {
         GroupOperation operation = metric.getKey();
-        Object value = data.get(operation.getField());
+        Object value = Specification.extractField(operation.getField(), data);
         switch (operation.getType()) {
             case MIN:
                 updateMetric(value, metric, AggregationOperations.MIN);
