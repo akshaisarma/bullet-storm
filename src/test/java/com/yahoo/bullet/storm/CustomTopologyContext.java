@@ -1,8 +1,10 @@
 package com.yahoo.bullet.storm;
 
+import org.apache.storm.metric.api.CountMetric;
 import org.apache.storm.metric.api.IMetric;
 import org.apache.storm.task.TopologyContext;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -11,17 +13,15 @@ public class CustomTopologyContext extends TopologyContext {
     private Map<Integer, Map<String, IMetric>> registeredMetrics;
 
     public CustomTopologyContext() {
-        super(null, null, null, null, null, null, null, null, null, null, null, null, null, null, new HashMap<>(), null);
+        super(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        registeredMetrics = new HashMap<>();
     }
 
     @Override
     public <T extends IMetric> T registerMetric(String name, T metric, int timeBucketSizeInSecs) {
-        if (!registeredMetrics.containsKey(timeBucketSizeInSecs)) {
-            registeredMetrics.put(timeBucketSizeInSecs, new HashMap<>());
-        }
-        Map<String, IMetric> metrics = registeredMetrics.get(timeBucketSizeInSecs);
+        Map<String, IMetric> metrics = registeredMetrics.getOrDefault(timeBucketSizeInSecs, new HashMap<>());
         metrics.put(name, metric);
-
+        registeredMetrics.putIfAbsent(timeBucketSizeInSecs, metrics);
         return metric;
     }
 
@@ -33,4 +33,32 @@ public class CustomTopologyContext extends TopologyContext {
                                                                        .findFirst();
         return metric.isPresent() ? metric.get().getValue() : null;
     }
+
+    public IMetric getRegisteredMetricInTimeBucket(Integer timeBucket, String name) {
+        Optional<Map.Entry<String, IMetric>> metric = registeredMetrics.getOrDefault(timeBucket, Collections.emptyMap())
+                                                                       .entrySet().stream()
+                                                                       .filter(e -> e.getKey().equals(name))
+                                                                       .findFirst();
+        return metric.isPresent() ? metric.get().getValue() : null;
+    }
+
+    private Long fetchCount(IMetric metric) {
+        if (metric == null) {
+            return null;
+        }
+        CountMetric counter = (CountMetric) metric;
+        Long value = (Long) metric.getValueAndReset();
+        // Put the value back
+        counter.incrBy(value);
+        return value;
+    }
+
+    public Long getCountForMetric(String name) {
+        return fetchCount(getRegisteredMetricByName(name));
+    }
+
+    public Long getCountForMetric(Integer timeBucket, String name) {
+        return fetchCount(getRegisteredMetricInTimeBucket(timeBucket, name));
+    }
 }
+

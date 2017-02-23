@@ -50,7 +50,6 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
     public static final String ACTIVE_RULES = "active_rules";
     public static final String CREATED_RULES = "created_rules";
     public static final String IMPROPER_RULES = "improper_rules";
-    public static final String RETIRING_RULES = "retiring_rules";
     // Variable
     private transient CountMetric activeRulesCount;
     // Monotonically increasing
@@ -89,12 +88,9 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
         bufferedRules = new RotatingMap<>(ruleTickout);
 
         if (metricsEnabled) {
-            activeRulesCount = new CountMetric();
-            context.registerMetric(ACTIVE_RULES, activeRulesCount, metricsInterval);
-            createdRulesCount = new CountMetric();
-            context.registerMetric(CREATED_RULES, createdRulesCount, metricsInterval);
-            improperRulesCount = new CountMetric();
-            context.registerMetric(IMPROPER_RULES, improperRulesCount, metricsInterval);
+            activeRulesCount = context.registerMetric(ACTIVE_RULES, new CountMetric(), metricsInterval);
+            createdRulesCount = context.registerMetric(CREATED_RULES, new CountMetric(), metricsInterval);
+            improperRulesCount = context.registerMetric(IMPROPER_RULES, new CountMetric(), metricsInterval);
         }
     }
 

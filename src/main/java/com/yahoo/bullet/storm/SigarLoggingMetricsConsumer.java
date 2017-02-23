@@ -16,7 +16,7 @@ public class SigarLoggingMetricsConsumer extends LoggingMetricsConsumer {
      * Registers the Sigar CPUMetric and the LoggingMetricsConsumer with a parallelism of 1.
      *
      * @param stormConfig The Storm {@link Config} to add to.
-     * @param bulletConfig The Bullet {@link BulletConfig} to get information for.
+     * @param bulletConfig The Bullet {@link BulletConfig} to get information from.
      */
     public static void register(Config stormConfig, BulletConfig bulletConfig) {
         stormConfig.registerMetricsConsumer(LoggingMetricsConsumer.class);
