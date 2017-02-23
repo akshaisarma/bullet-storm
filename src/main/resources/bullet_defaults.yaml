@@ -15,12 +15,19 @@ bullet.topology.scheduler: "ras"
 
 # Enable metrics collection for the topology. The registered metrics classes under bullet.topology.metrics.classes are loaded.
 # This enables the default storm built-in metrics. See: http://storm.apache.org/releases/1.0.1/Metrics.html
+# Depending on your cluster configuration, things such as on/off heap usage, cpu usage, garbage collection time/types
+# send/receive queue sizes and overflows, execute/ack/fail counts and other such system metrics can be obtained.
 bullet.topology.metrics.enable: false
 
 # Enable the collection of the Bullet built-in metrics. These will be sent to your metrics classes. This is in addition
 # to the storm built-in metrics. Currently supported are:
-#   1. A org.apache.storm.metric.api.CountMetric that counts the number  of rules active per JoinBolt.
+# Counting metrics (org.apache.storm.metric.api.CountMetric):
+#   1. active_rules : A CountMetric that counts the number of rules active per JoinBolt.
+#   2. created_rules : A CountMetric that counts the number of rules created per JoinBolt.
+#   3. improper_rules : A CountMetric that counts the number of semantically incorrect rules created per JoinBolt.
 bullet.topology.metrics.built.in.enable: false
+# The time period in seconds for emitting the built in metrics. This is passed to Storm when the metrics are registered.
+bullet.topology.metrics.built.in.emit.period.secs: 60
 
 # You can list full package prefixed class path to your custom implementation. The class must extend
 # org.apache.storm.metric.api.IMetricsConsumer. Additionally, it must provide a static method with signature

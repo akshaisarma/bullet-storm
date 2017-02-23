@@ -14,6 +14,7 @@ import com.yahoo.bullet.result.Metadata;
 import com.yahoo.bullet.result.Metadata.Concept;
 import com.yahoo.bullet.tracing.AggregationRule;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.storm.metric.api.CountMetric;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.OutputFieldsDeclarer;
@@ -45,6 +46,17 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
     // For doing a LEFT OUTER JOIN between Rules and intermediate aggregation, if the aggregations are lagging.
     private RotatingMap<Long, AggregationRule> bufferedRules;
 
+    // Metrics
+    public static final String ACTIVE_RULES = "active_rules";
+    public static final String CREATED_RULES = "created_rules";
+    public static final String IMPROPER_RULES = "improper_rules";
+    public static final String RETIRING_RULES = "retiring_rules";
+    // Variable
+    private transient CountMetric activeRulesCount;
+    // Monotonically increasing
+    private transient CountMetric createdRulesCount;
+    private transient CountMetric improperRulesCount;
+
     /**
      * Default constructor.
      */
@@ -75,6 +87,15 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
                                                                        DEFAULT_RULE_TICKOUT);
         int ruleTickout = ruleTickoutNumber.intValue();
         bufferedRules = new RotatingMap<>(ruleTickout);
+
+        if (metricsEnabled) {
+            activeRulesCount = new CountMetric();
+            context.registerMetric(ACTIVE_RULES, activeRulesCount, metricsInterval);
+            createdRulesCount = new CountMetric();
+            context.registerMetric(CREATED_RULES, createdRulesCount, metricsInterval);
+            improperRulesCount = new CountMetric();
+            context.registerMetric(IMPROPER_RULES, improperRulesCount, metricsInterval);
+        }
     }
 
     @Override
@@ -85,7 +106,7 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
                 handleTick();
                 break;
             case RULE_TUPLE:
-                initializeRule(tuple);
+                handleRule(tuple);
                 break;
             case RETURN_TUPLE:
                 initializeReturn(tuple);
@@ -133,6 +154,14 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
         activeReturns.put(id, tuple);
     }
 
+    private void handleRule(Tuple tuple) {
+        AggregationRule rule = initializeRule(tuple);
+        if (rule != null) {
+            updateCount(createdRulesCount, 1L);
+            updateCount(activeRulesCount, 1L);
+        }
+    }
+
     private void handleTick() {
         // Buffer whatever we're retiring now and forceEmit all the bufferedRules that are being rotated out.
         // Whatever we're retiring now MUST not have been satisfied since we emit Rules when FILTER_TUPLES satisfy them.
@@ -149,6 +178,8 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
         Metadata meta = Metadata.of(errors);
         Clip returnValue = Clip.of(meta);
         Tuple returnTuple = activeReturns.remove(id);
+        updateCount(improperRulesCount, 1L);
+
         if (returnTuple != null) {
             emit(returnValue, returnTuple);
             return;
@@ -167,6 +198,8 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
                 emit(id, rule, returnTuple);
             }
         }
+        updateCount(activeRulesCount, -forceEmit.size());
+
         // For the others that were just retired, roll them over into bufferedRules
         retireRules().forEach(bufferedRules::put);
     }
@@ -248,6 +281,12 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
         String key = metadataKeys.get(concept.getName());
         if (key != null) {
             action.accept(key);
+        }
+    }
+
+    private void updateCount(CountMetric metric, long updateValue) {
+        if (metricsEnabled) {
+            metric.incrBy(updateValue);
         }
     }
 }
