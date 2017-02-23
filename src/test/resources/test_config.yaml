@@ -1,4 +1,4 @@
 # The name
-topology.name: "test"
+bullet.topology.name: "test"
 # The function
-topology.function: "foo"
+bullet.topology.function: "foo"

@@ -91,7 +91,7 @@ public class BulletConfigTest {
     @Test
     public void testGettingBulletSettingsOnly() throws IOException {
         BulletConfig config = new BulletConfig();
-        Map<String, Object> settings = config.getBulletSettingsOnly();
+        Map<String, Object> settings = config.getNonTopologySubmissionSettings();
         BulletConfig.TOPOLOGY_SUBMISSION_SETTINGS.stream().forEach(s -> Assert.assertFalse(settings.containsKey(s)));
         Assert.assertTrue(settings.size() > 0);
     }
