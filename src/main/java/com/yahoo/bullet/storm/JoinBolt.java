@@ -46,9 +46,9 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
     private RotatingMap<Long, AggregationRule> bufferedRules;
 
     // Metrics
-    public static final String ACTIVE_RULES = "bullet_active_rules";
-    public static final String CREATED_RULES = "bullet_created_rules";
-    public static final String IMPROPER_RULES = "bullet_improper_rules";
+    public static final String ACTIVE_RULES = TopologyConstants.METRIC_PREFIX + "active_rules";
+    public static final String CREATED_RULES = TopologyConstants.METRIC_PREFIX + "created_rules";
+    public static final String IMPROPER_RULES = TopologyConstants.METRIC_PREFIX + "improper_rules";
     // Variable
     private transient AbsoluteCountMetric activeRulesCount;
     // Monotonically increasing
