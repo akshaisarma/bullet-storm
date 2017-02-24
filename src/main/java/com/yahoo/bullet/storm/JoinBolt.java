@@ -5,7 +5,6 @@
  */
 package com.yahoo.bullet.storm;
 
-import backtype.storm.metric.api.CountMetric;
 import backtype.storm.task.OutputCollector;
 import backtype.storm.task.TopologyContext;
 import backtype.storm.topology.OutputFieldsDeclarer;
@@ -51,10 +50,10 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
     public static final String CREATED_RULES = "created_rules";
     public static final String IMPROPER_RULES = "improper_rules";
     // Variable
-    private transient CountMetric activeRulesCount;
+    private transient AbsoluteCountMetric activeRulesCount;
     // Monotonically increasing
-    private transient CountMetric createdRulesCount;
-    private transient CountMetric improperRulesCount;
+    private transient AbsoluteCountMetric createdRulesCount;
+    private transient AbsoluteCountMetric improperRulesCount;
 
     /**
      * Default constructor.
@@ -88,9 +87,9 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
         bufferedRules = new RotatingMap<>(ruleTickout);
 
         if (metricsEnabled) {
-            activeRulesCount = context.registerMetric(ACTIVE_RULES, new CountMetric(), metricsInterval);
-            createdRulesCount = context.registerMetric(CREATED_RULES, new CountMetric(), metricsInterval);
-            improperRulesCount = context.registerMetric(IMPROPER_RULES, new CountMetric(), metricsInterval);
+            activeRulesCount = context.registerMetric(ACTIVE_RULES, new AbsoluteCountMetric(), metricsInterval);
+            createdRulesCount = context.registerMetric(CREATED_RULES, new AbsoluteCountMetric(), metricsInterval);
+            improperRulesCount = context.registerMetric(IMPROPER_RULES, new AbsoluteCountMetric(), metricsInterval);
         }
     }
 
@@ -280,9 +279,9 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
         }
     }
 
-    private void updateCount(CountMetric metric, long updateValue) {
+    private void updateCount(AbsoluteCountMetric metric, long updateValue) {
         if (metricsEnabled) {
-            metric.incrBy(updateValue);
+            metric.add(updateValue);
         }
     }
 }
