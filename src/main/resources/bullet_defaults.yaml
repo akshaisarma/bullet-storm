@@ -21,10 +21,11 @@ bullet.topology.metrics.enable: false
 
 # Enable the collection of the Bullet built-in metrics. These will be sent to your metrics classes. This is in addition
 # to the storm built-in metrics. Currently supported are:
-# Counting metrics (org.apache.storm.metric.api.CountMetric):
-#   1. active_rules : A CountMetric that counts the number of rules active per JoinBolt.
-#   2. created_rules : A CountMetric that counts the number of rules created per JoinBolt.
-#   3. improper_rules : A CountMetric that counts the number of semantically incorrect rules created per JoinBolt.
+# Counting metrics: These behave like org.apache.storm.metric.api.CountMetric but do not reset their value when getValueAndReset()
+# is called. This custom metric is defined in com.yahoo.bullet.storm.AbsoluteCountMetric.
+#   1. active_rules : A metric that counts the number of rules active per JoinBolt.
+#   2. created_rules : A metric that counts the number of rules created per JoinBolt.
+#   3. improper_rules : A metric that counts the number of semantically incorrect rules created per JoinBolt.
 bullet.topology.metrics.built.in.enable: false
 # The time period in seconds for emitting the built in metrics. This is passed to Storm when the metrics are registered.
 bullet.topology.metrics.built.in.emit.period.secs: 60
@@ -40,7 +41,7 @@ bullet.topology.metrics.built.in.emit.period.secs: 60
 # of the com.yahoo.bullet.storm.SigarLoggingMetricsConsumer.
 bullet.topology.metrics.classes:
   # This uses the LoggingMetricsConsumer and collects a CPU metric using org.apache.storm.metrics.sigar.CPUMetric. It
-  # runs with a parallelism of 1.
+  # runs with a parallelism of 1. The CPU metric is a worker level metric.
   - "com.yahoo.bullet.storm.SigarLoggingMetricsConsumer"
 
 # The following CPU loads and memory on and off heap control their respective component's CPU

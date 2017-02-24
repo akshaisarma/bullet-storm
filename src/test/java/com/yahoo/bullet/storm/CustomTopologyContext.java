@@ -1,6 +1,5 @@
 package com.yahoo.bullet.storm;
 
-import org.apache.storm.metric.api.CountMetric;
 import org.apache.storm.metric.api.IMetric;
 import org.apache.storm.task.TopologyContext;
 
@@ -43,14 +42,7 @@ public class CustomTopologyContext extends TopologyContext {
     }
 
     private Long fetchCount(IMetric metric) {
-        if (metric == null) {
-            return null;
-        }
-        CountMetric counter = (CountMetric) metric;
-        Long value = (Long) metric.getValueAndReset();
-        // Put the value back
-        counter.incrBy(value);
-        return value;
+        return metric == null ? null : (Long) ((AbsoluteCountMetric) metric).getValueAndReset();
     }
 
     public Long getCountForMetric(String name) {
