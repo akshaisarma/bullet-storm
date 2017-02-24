@@ -23,9 +23,9 @@ bullet.topology.metrics.enable: false
 # to the storm built-in metrics. Currently supported are:
 # Counting metrics: These behave like org.apache.storm.metric.api.CountMetric but do not reset their value when getValueAndReset()
 # is called. This custom metric is defined in com.yahoo.bullet.storm.AbsoluteCountMetric.
-#   1. active_rules : A metric that counts the number of rules active per JoinBolt.
-#   2. created_rules : A metric that counts the number of rules created per JoinBolt.
-#   3. improper_rules : A metric that counts the number of semantically incorrect rules created per JoinBolt.
+#   1. bullet_active_rules : A metric that counts the number of rules active per JoinBolt.
+#   2. bullet_created_rules : A metric that counts the number of rules created per JoinBolt.
+#   3. bullet_improper_rules : A metric that counts the number of semantically incorrect rules created per JoinBolt.
 bullet.topology.metrics.built.in.enable: false
 # The time period in seconds for emitting the built in metrics. This is passed to Storm when the metrics are registered.
 bullet.topology.metrics.built.in.emit.period.secs: 60
