@@ -70,6 +70,7 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
         super(tickInterval);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
         super.prepare(stormConf, context, collector);
@@ -87,9 +88,9 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
         bufferedRules = new RotatingMap<>(ruleTickout);
 
         if (metricsEnabled) {
-            activeRulesCount = context.registerMetric(ACTIVE_RULES, new AbsoluteCountMetric(), metricsInterval);
-            createdRulesCount = context.registerMetric(CREATED_RULES, new AbsoluteCountMetric(), metricsInterval);
-            improperRulesCount = context.registerMetric(IMPROPER_RULES, new AbsoluteCountMetric(), metricsInterval);
+            activeRulesCount = registerAbsoluteCountMetric(ACTIVE_RULES, context);
+            createdRulesCount = registerAbsoluteCountMetric(CREATED_RULES, context);
+            improperRulesCount = registerAbsoluteCountMetric(IMPROPER_RULES, context);
         }
     }
 
@@ -244,7 +245,6 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
         Objects.requireNonNull(rule);
         Objects.requireNonNull(returnTuple);
 
-        // TODO Anchor this tuple to all tuples that caused its emission : rule tuple, return tuple, data tuple(s)
         Clip records = rule.getData();
         records.add(getMetadata(id, rule));
         emit(records, returnTuple);
@@ -287,5 +287,12 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
         if (metricsEnabled) {
             metric.add(updateValue);
         }
+    }
+
+    private AbsoluteCountMetric registerAbsoluteCountMetric(String name, TopologyContext context) {
+        Number interval = metricsIntervalMapping.getOrDefault(name,
+                                                              metricsIntervalMapping.get(DEFAULT_METRICS_INTERVAL_KEY));
+        log.info("Registered {} with interval {}", name, interval);
+        return context.registerMetric(name, new AbsoluteCountMetric(), interval.intValue());
     }
 }

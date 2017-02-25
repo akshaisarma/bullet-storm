@@ -25,7 +25,7 @@ public class BulletConfig extends Config {
     public static final String TOPOLOGY_METRICS_ENABLE = "bullet.topology.metrics.enable";
     public static final String TOPOLOGY_METRICS_CLASSES = "bullet.topology.metrics.classes";
     public static final String TOPOLOGY_METRICS_BUILT_IN_ENABLE = "bullet.topology.metrics.built.in.enable";
-    public static final String TOPOLOGY_METRICS_BUILT_IN_EMIT_INTERVAL_SECS = "bullet.topology.metrics.built.in.emit.interval.secs";
+    public static final String TOPOLOGY_METRICS_BUILT_IN_EMIT_INTERVAL_MAPPING = "bullet.topology.metrics.built.in.emit.interval.mapping";
     public static final String DRPC_SPOUT_PARALLELISM = "bullet.topology.drpc.spout.parallelism";
     public static final String DRPC_SPOUT_CPU_LOAD = "bullet.topology.drpc.spout.cpu.load";
     public static final String DRPC_SPOUT_MEMORY_ON_HEAP_LOAD = "bullet.topology.drpc.spout.memory.on.heap.load";
