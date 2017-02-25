@@ -25,10 +25,11 @@ public abstract class RuleBolt<R extends AbstractRule> implements IRichBolt {
     public static final Integer DEFAULT_TICK_INTERVAL = 5;
 
     public static final boolean DEFAULT_BUILT_IN_METRICS_ENABLE = false;
+    public static final String DEFAULT_METRICS_INTERVAL_KEY = "default";
     public static final int DEFAULT_BUILT_IN_METRICS_INTERVAL_SECS = 60;
 
     protected boolean metricsEnabled;
-    protected int metricsInterval;
+    protected Map<String, Number> metricsIntervalMapping;
     protected int tickInterval;
     protected Map configuration;
     protected OutputCollector collector;
@@ -52,6 +53,7 @@ public abstract class RuleBolt<R extends AbstractRule> implements IRichBolt {
         this(DEFAULT_TICK_INTERVAL);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public void prepare(Map stormConf, TopologyContext context, OutputCollector collector) {
         // stormConf is not modifyable. Need to make a copy.
@@ -71,8 +73,9 @@ public abstract class RuleBolt<R extends AbstractRule> implements IRichBolt {
         // Enable built in metrics
         metricsEnabled = (Boolean) configuration.getOrDefault(BulletConfig.TOPOLOGY_METRICS_BUILT_IN_ENABLE,
                                                               DEFAULT_BUILT_IN_METRICS_ENABLE);
-        metricsInterval = ((Number) configuration.getOrDefault(BulletConfig.TOPOLOGY_METRICS_BUILT_IN_EMIT_INTERVAL_SECS,
-                                                               DEFAULT_BUILT_IN_METRICS_INTERVAL_SECS)).intValue();
+        metricsIntervalMapping = (Map<String, Number>) configuration.getOrDefault(BulletConfig.TOPOLOGY_METRICS_BUILT_IN_EMIT_INTERVAL_MAPPING,
+                                                                                  new HashMap<>());
+        metricsIntervalMapping.putIfAbsent(DEFAULT_METRICS_INTERVAL_KEY, DEFAULT_BUILT_IN_METRICS_INTERVAL_SECS);
     }
 
     /**

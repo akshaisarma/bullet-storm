@@ -849,21 +849,25 @@ public class JoinBoltTest {
     @Test
     public void testCustomMetricEmitInterval() {
         Map<String, Object> config = new HashMap<>();
+        Map<String, Number> mapping = new HashMap<>();
         config.put(BulletConfig.TOPOLOGY_METRICS_BUILT_IN_ENABLE, true);
-        config.put(BulletConfig.TOPOLOGY_METRICS_BUILT_IN_EMIT_INTERVAL_SECS, 42);
+
+        mapping.put(JoinBolt.ACTIVE_RULES, 1);
+        mapping.put(JoinBolt.DEFAULT_METRICS_INTERVAL_KEY, 10);
+        config.put(BulletConfig.TOPOLOGY_METRICS_BUILT_IN_EMIT_INTERVAL_MAPPING, mapping);
         setup(config, new ExpiringJoinBolt());
 
         Tuple rule = TupleUtils.makeIDTuple(TupleType.Type.RULE_TUPLE, 42L,
                                             makeGroupFilterRule("timestamp", asList("1", "2"), EQUALS, GROUP, 1,
                                                                 singletonList(new GroupOperation(COUNT, null, "cnt"))));
 
-        Assert.assertEquals(context.getCountForMetric(42, JoinBolt.CREATED_RULES), Long.valueOf(0));
-        Assert.assertEquals(context.getCountForMetric(42, JoinBolt.ACTIVE_RULES), Long.valueOf(0));
-        Assert.assertEquals(context.getCountForMetric(42, JoinBolt.IMPROPER_RULES), Long.valueOf(0));
+        Assert.assertEquals(context.getCountForMetric(10, JoinBolt.CREATED_RULES), Long.valueOf(0));
+        Assert.assertEquals(context.getCountForMetric(1, JoinBolt.ACTIVE_RULES), Long.valueOf(0));
+        Assert.assertEquals(context.getCountForMetric(10, JoinBolt.IMPROPER_RULES), Long.valueOf(0));
 
         bolt.execute(rule);
-        Assert.assertEquals(context.getCountForMetric(42, JoinBolt.CREATED_RULES), Long.valueOf(1));
-        Assert.assertEquals(context.getCountForMetric(42, JoinBolt.ACTIVE_RULES), Long.valueOf(1));
+        Assert.assertEquals(context.getCountForMetric(10, JoinBolt.CREATED_RULES), Long.valueOf(1));
+        Assert.assertEquals(context.getCountForMetric(1, JoinBolt.ACTIVE_RULES), Long.valueOf(1));
 
         Tuple tick = TupleUtils.makeTuple(TupleType.Type.TICK_TUPLE);
         bolt.execute(tick);
@@ -876,8 +880,8 @@ public class JoinBoltTest {
         Tuple expected = TupleUtils.makeTuple(TupleType.Type.JOIN_TUPLE, Clip.of(result).asJSON(), "");
         Assert.assertFalse(collector.wasTupleEmitted(expected));
 
-        Assert.assertEquals(context.getCountForMetric(42, JoinBolt.CREATED_RULES), Long.valueOf(1));
-        Assert.assertEquals(context.getCountForMetric(42, JoinBolt.ACTIVE_RULES), Long.valueOf(0));
-        Assert.assertEquals(context.getCountForMetric(42, JoinBolt.IMPROPER_RULES), Long.valueOf(0));
+        Assert.assertEquals(context.getCountForMetric(10, JoinBolt.CREATED_RULES), Long.valueOf(1));
+        Assert.assertEquals(context.getCountForMetric(1, JoinBolt.ACTIVE_RULES), Long.valueOf(0));
+        Assert.assertEquals(context.getCountForMetric(10, JoinBolt.IMPROPER_RULES), Long.valueOf(0));
     }
 }
