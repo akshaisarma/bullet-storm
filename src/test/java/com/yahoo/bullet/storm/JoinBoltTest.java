@@ -228,10 +228,16 @@ public class JoinBoltTest {
 
     @Test
     public void testJoiningAfterTickout() {
-        bolt = ComponentUtils.prepare(new ExpiringJoinBolt(), collector);
+        Map<String, Object> config = new HashMap<>();
+        config.put(BulletConfig.TOPOLOGY_METRICS_BUILT_IN_ENABLE, true);
+        setup(config, new ExpiringJoinBolt());
+
         Tuple rule = TupleUtils.makeIDTuple(TupleType.Type.RULE_TUPLE, 42L,
                                             makeAggregationRule(RAW, 3));
         bolt.execute(rule);
+
+        Assert.assertEquals(context.getCountForMetric(JoinBolt.CREATED_RULES), Long.valueOf(1));
+        Assert.assertEquals(context.getCountForMetric(JoinBolt.ACTIVE_RULES), Long.valueOf(1));
 
         Tuple returnInfo = TupleUtils.makeIDTuple(TupleType.Type.RETURN_TUPLE, 42L, "");
         bolt.execute(returnInfo);
@@ -250,19 +256,29 @@ public class JoinBoltTest {
         for (int i = 0; i < JoinBolt.DEFAULT_RULE_TICKOUT - 1; ++i) {
             bolt.execute(tick);
             Assert.assertFalse(collector.wasTupleEmitted(expected));
+            Assert.assertEquals(context.getCountForMetric(JoinBolt.CREATED_RULES), Long.valueOf(1));
+            Assert.assertEquals(context.getCountForMetric(JoinBolt.ACTIVE_RULES), Long.valueOf(1));
         }
         // This will cause the emission
         bolt.execute(tick);
         Assert.assertTrue(collector.wasNthEmitted(expected, 1));
         Assert.assertEquals(collector.getAllEmitted().count(), 1);
+        Assert.assertEquals(context.getCountForMetric(JoinBolt.CREATED_RULES), Long.valueOf(1));
+        Assert.assertEquals(context.getCountForMetric(JoinBolt.ACTIVE_RULES), Long.valueOf(0));
     }
 
     @Test
     public void testJoiningAfterLateArrivalBeforeTickout() {
-        bolt = ComponentUtils.prepare(new ExpiringJoinBolt(), collector);
+        Map<String, Object> config = new HashMap<>();
+        config.put(BulletConfig.TOPOLOGY_METRICS_BUILT_IN_ENABLE, true);
+        setup(config, new ExpiringJoinBolt());
+
         Tuple rule = TupleUtils.makeIDTuple(TupleType.Type.RULE_TUPLE, 42L,
                                             makeAggregationRule(RAW, 3));
         bolt.execute(rule);
+
+        Assert.assertEquals(context.getCountForMetric(JoinBolt.CREATED_RULES), Long.valueOf(1));
+        Assert.assertEquals(context.getCountForMetric(JoinBolt.ACTIVE_RULES), Long.valueOf(1));
 
         Tuple returnInfo = TupleUtils.makeIDTuple(TupleType.Type.RETURN_TUPLE, 42L, "");
         bolt.execute(returnInfo);
@@ -281,6 +297,8 @@ public class JoinBoltTest {
         for (int i = 0; i < JoinBolt.DEFAULT_RULE_TICKOUT - 1; ++i) {
             bolt.execute(tick);
             Assert.assertFalse(collector.wasTupleEmitted(expected));
+            Assert.assertEquals(context.getCountForMetric(JoinBolt.CREATED_RULES), Long.valueOf(1));
+            Assert.assertEquals(context.getCountForMetric(JoinBolt.ACTIVE_RULES), Long.valueOf(1));
         }
         // Now we satisfy the aggregation and see if it causes an emission
         List<BulletRecord> sentLate = sendRawRecordTuplesTo(bolt, 42L, 1);
@@ -291,15 +309,22 @@ public class JoinBoltTest {
 
         Assert.assertTrue(collector.wasNthEmitted(expected, 1));
         Assert.assertEquals(collector.getAllEmitted().count(), 1);
+        Assert.assertEquals(context.getCountForMetric(JoinBolt.CREATED_RULES), Long.valueOf(1));
+        Assert.assertEquals(context.getCountForMetric(JoinBolt.ACTIVE_RULES), Long.valueOf(0));
     }
 
     @Test
     public void testFailJoiningAfterLateArrivalSinceNoReturn() {
-        bolt = ComponentUtils.prepare(new ExpiringJoinBolt(), collector);
+        Map<String, Object> config = new HashMap<>();
+        config.put(BulletConfig.TOPOLOGY_METRICS_BUILT_IN_ENABLE, true);
+        setup(config, new ExpiringJoinBolt());
+
         Tuple rule = TupleUtils.makeIDTuple(TupleType.Type.RULE_TUPLE, 42L,
                                             makeAggregationRule(RAW, 3));
         bolt.execute(rule);
 
+        Assert.assertEquals(context.getCountForMetric(JoinBolt.CREATED_RULES), Long.valueOf(1));
+        Assert.assertEquals(context.getCountForMetric(JoinBolt.ACTIVE_RULES), Long.valueOf(1));
         // No return information
 
         List<BulletRecord> sent = sendRawRecordTuplesTo(bolt, 42L, 2);
@@ -308,6 +333,8 @@ public class JoinBoltTest {
         Tuple tick = TupleUtils.makeTuple(TupleType.Type.TICK_TUPLE);
         bolt.execute(tick);
         bolt.execute(tick);
+        Assert.assertEquals(context.getCountForMetric(JoinBolt.CREATED_RULES), Long.valueOf(1));
+        Assert.assertEquals(context.getCountForMetric(JoinBolt.ACTIVE_RULES), Long.valueOf(1));
 
         Tuple expected = TupleUtils.makeTuple(TupleType.Type.JOIN_TUPLE, Clip.of(sent).asJSON(), "");
 
@@ -316,6 +343,8 @@ public class JoinBoltTest {
             bolt.execute(tick);
             Assert.assertFalse(collector.wasTupleEmitted(expected));
         }
+        Assert.assertEquals(context.getCountForMetric(JoinBolt.CREATED_RULES), Long.valueOf(1));
+        Assert.assertEquals(context.getCountForMetric(JoinBolt.ACTIVE_RULES), Long.valueOf(0));
     }
 
     @Test
@@ -839,7 +868,7 @@ public class JoinBoltTest {
         Tuple tick = TupleUtils.makeTuple(TupleType.Type.TICK_TUPLE);
         bolt.execute(tick);
         bolt.execute(tick);
-        for (int i = 0; i <= JoinBolt.DEFAULT_RULE_TICKOUT - 1; ++i) {
+        for (int i = 0; i <= JoinBolt.DEFAULT_RULE_TICKOUT; ++i) {
             bolt.execute(tick);
         }
 

@@ -185,15 +185,18 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
 
     private void emitRetired(Map<Long, AggregationRule> forceEmit) {
         // Force emit everything that was asked to be emitted if we can. These are rotated out rules from bufferedRules.
+        long emitted = 0;
         for (Map.Entry<Long, AggregationRule> e : forceEmit.entrySet()) {
             Long id = e.getKey();
             AggregationRule rule = e.getValue();
             Tuple returnTuple = activeReturns.remove(id);
             if (canEmit(id, rule, returnTuple)) {
+                emitted++;
                 emit(id, rule, returnTuple);
             }
         }
-        updateCount(activeRulesCount, -forceEmit.size());
+        // We already decreased activeRulesCount by emitted. The others that are thrown away should decrease the count too.
+        updateCount(activeRulesCount, -forceEmit.size() + emitted);
 
         // For the others that were just retired, roll them over into bufferedRules
         retireRules().forEach(bufferedRules::put);
@@ -250,6 +253,7 @@ public class JoinBolt extends RuleBolt<AggregationRule> {
         rulesMap.remove(id);
         bufferedRules.remove(id);
         activeReturns.remove(id);
+        updateCount(activeRulesCount, -1L);
     }
 
     private void emit(Clip clip, Tuple returnTuple) {
