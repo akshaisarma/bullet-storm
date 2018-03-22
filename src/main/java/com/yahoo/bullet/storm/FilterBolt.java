@@ -86,6 +86,24 @@ public class FilterBolt extends QueryBolt {
         declarer.declareStream(ERROR_STREAM, new Fields(ID_FIELD, ERROR_FIELD));
     }
 
+    /**
+     * Handles a {@link Tuple} containing a {@link BulletRecord}.
+     *
+     * @param tuple The tuple containing the record.
+     */
+    protected void onRecord(Tuple tuple) {
+        handleRecord((BulletRecord) tuple.getValue(TopologyConstants.RECORD_POSITION));
+    }
+
+    /**
+     * Categorizes and emits relevant data for all queries a {@link BulletRecord}.
+     *
+     * @param record The record to categorize.
+     */
+    protected void handleRecord(BulletRecord record) {
+        handleCategorizedQueries(new QueryCategorizer(Querier::isClosedForPartition).categorize(record, queries));
+    }
+
     private void onQuery(Tuple tuple) {
         String id = tuple.getString(TopologyConstants.ID_POSITION);
         String query = tuple.getString(TopologyConstants.QUERY_POSITION);
@@ -100,11 +118,6 @@ public class FilterBolt extends QueryBolt {
         }
         // No need to handle any errors in the Filter Bolt.
         log.error("Failed to initialize query for request {} with query {}", id, query);
-    }
-
-    private void onRecord(Tuple tuple) {
-        BulletRecord record = (BulletRecord) tuple.getValue(TopologyConstants.RECORD_POSITION);
-        handleCategorizedQueries(new QueryCategorizer(Querier::isClosedForPartition).categorize(record, queries));
     }
 
     private void onTick() {

@@ -32,6 +32,7 @@ public class BulletStormConfig extends BulletConfig implements Serializable {
     public static final String TOPOLOGY_METRICS_BUILT_IN_ENABLE = "bullet.topology.metrics.built.in.enable";
     public static final String TOPOLOGY_METRICS_BUILT_IN_EMIT_INTERVAL_MAPPING = "bullet.topology.metrics.built.in.emit.interval.mapping";
     public static final String TOPOLOGY_METRICS_CLASSES = "bullet.topology.metrics.classes";
+    public static final String TOPOLOGY_BATCHED_BULLET_RECORDS_ENABLE = "bullet.topology.batched.bullet.records.enable";
     public static final String QUERY_SPOUT_PARALLELISM = "bullet.topology.query.spout.parallelism";
     public static final String QUERY_SPOUT_CPU_LOAD = "bullet.topology.query.spout.cpu.load";
     public static final String QUERY_SPOUT_MEMORY_ON_HEAP_LOAD = "bullet.topology.query.spout.memory.on.heap.load";
@@ -75,6 +76,7 @@ public class BulletStormConfig extends BulletConfig implements Serializable {
     static {
         DEFAULT_TOPOLOGY_METRICS_CLASSES.add(SigarLoggingMetricsConsumer.class.getName());
     }
+    public static final boolean DEFAULT_TOPOLOGY_BATCHED_BULLET_RECORDS_ENABLE = false;
     public static final int DEFAULT_QUERY_SPOUT_PARALLELISM = 2;
     public static final double DEFAULT_QUERY_SPOUT_CPU_LOAD = 20.0;
     public static final double DEFAULT_QUERY_SPOUT_MEMORY_ON_HEAP_LOAD = 256.0;
@@ -144,6 +146,10 @@ public class BulletStormConfig extends BulletConfig implements Serializable {
                  .checkIf(Validator::isList)
                  .checkIf(BulletStormConfig::areMetricsConsumerClasses)
                  .defaultTo(DEFAULT_TOPOLOGY_METRICS_CLASSES);
+
+        VALIDATOR.define(TOPOLOGY_BATCHED_BULLET_RECORDS_ENABLE)
+                 .defaultTo(DEFAULT_TOPOLOGY_BATCHED_BULLET_RECORDS_ENABLE)
+                 .checkIf(Validator::isBoolean);
 
         VALIDATOR.define(QUERY_SPOUT_PARALLELISM)
                  .checkIf(Validator::isPositiveInt)

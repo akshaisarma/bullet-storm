@@ -47,6 +47,11 @@ bullet.topology.metrics.classes:
   # runs with a parallelism of 1. The CPU metric is a worker level metric.
   - "com.yahoo.bullet.storm.SigarLoggingMetricsConsumer"
 
+# Enables whether your data source component sending data to the Filter Bolt is emitting batches of BulletRecord or
+# a single record per emit. By default, a single record is assumed. If you read your data in batches anyway, it might
+# offer more performance to enable this and emit your full batch of BulletRecord to a Filter Bolt instead.
+bullet.topology.batched.bullet.records.enable: false
+
 # The following CPU loads and memory on and off heap control their respective component's CPU
 # and memory configuration. These settings are only used for the RAS scheduler.
 # The parallelism setting controls the number of executors used for each component.

@@ -456,4 +456,34 @@ public class StormUtilsTest {
         Map<Pair<String, String>, List<Fields>> loopFieldGroupings = loopBolt.getFieldsGroupings();
         Assert.assertTrue(loopFieldGroupings.isEmpty());
     }
+
+    @Test
+    public void testHookingInBatchedBulletRecords() {
+        Assert.assertFalse(builder.isTopologyCreated());
+        config.set(BulletStormConfig.TOPOLOGY_BATCHED_BULLET_RECORDS_ENABLE, true);
+        config.validate();
+        submitWithSpout(CustomIRichSpout.class.getName(), null, 2, 100.0, 96.0, 0.0);
+
+        Assert.assertTrue(builder.isTopologyCreated());
+
+        Assert.assertEquals(builder.getCreatedSpouts().size(), 3);
+        Assert.assertEquals(builder.getCreatedBolts().size(), 4);
+
+        CustomBoltDeclarer filterBolt = getBolt(FILTER_COMPONENT);
+        Assert.assertNotNull(filterBolt);
+        Assert.assertEquals(filterBolt.getBolt().getClass(), FilterBatchBolt.class);
+        Assert.assertEquals(filterBolt.getParallelism(), BulletStormConfig.DEFAULT_FILTER_BOLT_PARALLELISM);
+        Assert.assertEquals(filterBolt.getCpuLoad(), BulletStormConfig.DEFAULT_FILTER_BOLT_CPU_LOAD);
+        Assert.assertEquals(filterBolt.getOnHeap(), BulletStormConfig.DEFAULT_FILTER_BOLT_MEMORY_ON_HEAP_LOAD);
+        Assert.assertEquals(filterBolt.getOffHeap(), BulletStormConfig.DEFAULT_FILTER_BOLT_MEMORY_OFF_HEAP_LOAD);
+        List<Pair<String, String>> filterAllGroupings = filterBolt.getAllGroupings();
+        Assert.assertEquals(filterAllGroupings.size(), 3);
+        assertContains(filterAllGroupings, TICK_COMPONENT, TICK_STREAM);
+        assertContains(filterAllGroupings, QUERY_COMPONENT, QUERY_STREAM);
+        assertContains(filterAllGroupings, QUERY_COMPONENT, METADATA_STREAM);
+        List<Pair<String, String>> filterShuffleGroupings = filterBolt.getShuffleGroupings();
+        assertContains(filterShuffleGroupings, TopologyConstants.RECORD_COMPONENT, Utils.DEFAULT_STREAM_ID);
+        Map<Pair<String, String>, List<Fields>> filterFieldGroupings = filterBolt.getFieldsGroupings();
+        Assert.assertTrue(filterFieldGroupings.isEmpty());
+    }
 }

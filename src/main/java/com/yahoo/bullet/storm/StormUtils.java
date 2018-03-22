@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.storm.Config;
 import org.apache.storm.StormSubmitter;
 import org.apache.storm.scheduler.resource.strategies.scheduling.DefaultResourceAwareStrategy;
+import org.apache.storm.topology.IRichBolt;
 import org.apache.storm.topology.TopologyBuilder;
 import org.apache.storm.tuple.Fields;
 
@@ -88,8 +89,12 @@ public class StormUtils {
         builder.setSpout(TICK_COMPONENT, new TickSpout(config), tickSpoutParallelism)
                .setCPULoad(tickSpoutCPULoad).setMemoryLoad(tickSpoutMemoryOnheapLoad, tickSpoutMemoryOffHeapLoad);
 
+        // Batched or not
+        boolean isBatched = config.getAs(BulletStormConfig.TOPOLOGY_BATCHED_BULLET_RECORDS_ENABLE, Boolean.class);
+        IRichBolt filterBolt = isBatched ? new FilterBatchBolt(recordComponent, config) : new FilterBolt(recordComponent, config);
+
         // Hook in the source of the BulletRecords
-        builder.setBolt(FILTER_COMPONENT, new FilterBolt(recordComponent, config), filterBoltParallelism)
+        builder.setBolt(FILTER_COMPONENT, filterBolt, filterBoltParallelism)
                .shuffleGrouping(recordComponent)
                .allGrouping(QUERY_COMPONENT, QUERY_STREAM)
                .allGrouping(QUERY_COMPONENT, METADATA_STREAM)
